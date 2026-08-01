@@ -10,6 +10,16 @@ interface FireDealsViewProps {
   onSelectForPost: (product: Product) => void;
 }
 
+const CATEGORIES = [
+  'All',
+  'Tech & Electronics',
+  'Smart Home',
+  'Kitchen & Dining',
+  'Fitness & Health',
+  'Beauty & Personal Care',
+  'Fashion & Accessories',
+];
+
 export const FireDealsView: React.FC<FireDealsViewProps> = ({
   settings,
   onAddProduct,
@@ -208,7 +218,7 @@ export const FireDealsView: React.FC<FireDealsViewProps> = ({
                     onChange={(e) => setNewCategory(e.target.value)}
                     className="w-full px-2 py-1.5 rounded bg-zinc-50 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-xs font-mono text-zinc-900 dark:text-zinc-100"
                   >
-                    {categories.filter(c => c !== 'All').map(c => (
+                    {CATEGORIES.filter(c => c !== 'All').map(c => (
                       <option key={c} value={c}>{c}</option>
                     ))}
                   </select>
@@ -274,7 +284,7 @@ export const FireDealsView: React.FC<FireDealsViewProps> = ({
 
         {/* Categories Pills */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-          {categories.map((cat) => (
+          {CATEGORIES.map((cat) => (
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}

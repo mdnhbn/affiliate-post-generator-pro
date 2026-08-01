@@ -1,15 +1,15 @@
 export interface FireDealProduct {
   id: string;
   title: string;
-  category: 'Tech & Electronics' | 'Smart Home' | 'Kitchen & Dining' | 'Fitness & Health' | 'Beauty & Personal Care' | 'Fashion & Accessories';
+  category: string;
   priceDiscount: string;
-  estCommission: string;
+  estCommission?: string;
   features: string;
-  asin: string;
+  asin?: string;
   amazonUrl: string;
-  imageUrl: string;
-  badge: '🔥 HOT DEAL' | '⚡ 50%+ OFF' | '🏆 #1 BEST SELLER' | '⭐ TRENDING VIRAL';
-  discountPercent: number;
+  imageUrl?: string;
+  badge: string;
+  discountPercent?: number;
   addedDate?: string;
 }
 
