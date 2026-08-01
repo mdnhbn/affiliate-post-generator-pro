@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { AMAZON_FIRE_DEALS, FireDealProduct } from '../data/fireDeals';
 import { Product, Settings } from '../types';
-import { sanitizeAmazonUrl } from '../utils/amazon';
-import { Flame, Search, ExternalLink, Sparkles, Plus, Check, TrendingUp, AlertTriangle, Calendar } from 'lucide-react';
+import { sanitizeAmazonUrl, extractAsinFromUrl, getTagForUrl } from '../utils/amazon';
+import { Flame, Search, ExternalLink, Sparkles, Plus, Check, TrendingUp, AlertTriangle, Calendar, Globe, ShieldCheck } from 'lucide-react';
 
 interface FireDealsViewProps {
   settings: Settings;
@@ -18,6 +18,14 @@ const CATEGORIES = [
   'Fitness & Health',
   'Beauty & Personal Care',
   'Fashion & Accessories',
+];
+
+const TARGET_MARKETPLACES = [
+  { id: 'com', name: 'USA 🇺🇸', domain: 'amazon.com', currency: '$' },
+  { id: 'sa', name: 'Saudi Arabia 🇸🇦', domain: 'amazon.sa', currency: 'SAR ﷼' },
+  { id: 'ae', name: 'UAE 🇦🇪', domain: 'amazon.ae', currency: 'AED د.إ' },
+  { id: 'uk', name: 'United Kingdom 🇬🇧', domain: 'amazon.co.uk', currency: '£' },
+  { id: 'in', name: 'India 🇮🇳', domain: 'amazon.in', currency: '₹' },
 ];
 
 export const FireDealsView: React.FC<FireDealsViewProps> = ({
@@ -50,12 +58,20 @@ export const FireDealsView: React.FC<FireDealsViewProps> = ({
   const [newFeatures, setNewFeatures] = useState('');
 
   const [selectedMonth, setSelectedMonth] = useState<string>('All');
+  const [selectedMarketplace, setSelectedMarketplace] = useState(TARGET_MARKETPLACES[0]);
   const [isAiSearching, setIsAiSearching] = useState(false);
   const [aiNiche, setAiNiche] = useState('TikTok Made Me Buy It');
 
   const MONTHS = ['All', 'August 2026', 'July 2026'];
 
   const defaultTag = settings.defaultAffiliateTag || 'yourtag-20';
+
+  // Build live country-specific Amazon URL for direct user verification
+  const getLiveCountryUrl = (deal: FireDealProduct) => {
+    const asin = deal.asin || extractAsinFromUrl(deal.amazonUrl) || 'B0BL4RWX8D';
+    const tagToUse = getTagForUrl(`https://www.${selectedMarketplace.domain}`, defaultTag, settings.marketplaces);
+    return `https://www.${selectedMarketplace.domain}/dp/${asin}?tag=${encodeURIComponent(tagToUse)}`;
+  };
 
   const toggleHideDemoDeals = () => {
     const nextVal = !hideDemoDeals;
@@ -171,11 +187,11 @@ export const FireDealsView: React.FC<FireDealsViewProps> = ({
   };
 
   const handleGenerateForDeal = (deal: FireDealProduct) => {
-    const cleanUrl = sanitizeAmazonUrl(deal.amazonUrl, defaultTag, settings.marketplaces);
+    const liveUrl = getLiveCountryUrl(deal);
     const prod: Product = {
       id: `prod-fire-${deal.id}-${Date.now()}`,
-      title: deal.title,
-      amazonUrl: cleanUrl,
+      title: `${deal.title} (${selectedMarketplace.name})`,
+      amazonUrl: liveUrl,
       features: deal.features,
       priceDiscount: deal.priceDiscount,
       imageUrl: deal.imageUrl,
@@ -188,11 +204,11 @@ export const FireDealsView: React.FC<FireDealsViewProps> = ({
   };
 
   const handleSaveToLibrary = (deal: FireDealProduct) => {
-    const cleanUrl = sanitizeAmazonUrl(deal.amazonUrl, defaultTag, settings.marketplaces);
+    const liveUrl = getLiveCountryUrl(deal);
     const prod: Product = {
       id: `prod-fire-${deal.id}-${Date.now()}`,
-      title: deal.title,
-      amazonUrl: cleanUrl,
+      title: `${deal.title} (${selectedMarketplace.name})`,
+      amazonUrl: liveUrl,
       features: deal.features,
       priceDiscount: deal.priceDiscount,
       imageUrl: deal.imageUrl,
@@ -336,6 +352,33 @@ export const FireDealsView: React.FC<FireDealsViewProps> = ({
       {/* Category Pills & Search Bar */}
       <div className="space-y-3 bg-white dark:bg-[#18191e] p-4 rounded-lg border-2 border-dashed border-zinc-200 dark:border-zinc-800">
         
+        {/* Target Country / Marketplace Selector */}
+        <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1 border-b border-zinc-200 dark:border-zinc-800 pb-3">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Globe className="w-4 h-4 text-amber-500" />
+            <span className="text-xs font-mono font-bold text-zinc-900 dark:text-zinc-100 uppercase">
+              Target Country Marketplace:
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 overflow-x-auto">
+            {TARGET_MARKETPLACES.map((mp) => (
+              <button
+                key={mp.id}
+                onClick={() => setSelectedMarketplace(mp)}
+                className={`px-3 py-1 rounded text-xs font-mono font-bold whitespace-nowrap transition-all flex items-center gap-1 border ${
+                  selectedMarketplace.id === mp.id
+                    ? 'bg-amber-500 text-zinc-950 border-amber-400 shadow-sm'
+                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-300 dark:border-zinc-700 hover:border-amber-500/50'
+                }`}
+              >
+                <span>{mp.name}</span>
+                <span className="text-[10px] opacity-75">({mp.domain})</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Search */}
         <div className="relative">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
@@ -377,7 +420,7 @@ export const FireDealsView: React.FC<FireDealsViewProps> = ({
               className="w-full md:w-auto px-3.5 py-1.5 rounded bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 text-zinc-950 font-mono font-bold text-xs flex items-center justify-center gap-1.5 shadow-md disabled:opacity-50 transition-all"
             >
               <Sparkles className={`w-3.5 h-3.5 ${isAiSearching ? 'animate-spin' : ''}`} />
-              {isAiSearching ? 'Scanning Viral TikTok & Amazon Hits...' : '🔍 Fetch Top 10-20 Monthly Viral Hits'}
+              {isAiSearching ? 'Scanning Viral TikTok & Amazon Hits...' : `🔍 Fetch Top 10-20 Viral Hits (${selectedMarketplace.name})`}
             </button>
           </div>
         </div>
@@ -401,33 +444,40 @@ export const FireDealsView: React.FC<FireDealsViewProps> = ({
 
       </div>
 
-      {/* Grid of Deals */}
+      {/* Grid of Deals with Sequential Ranks #1 to #20 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {filteredDeals.map((deal) => {
+        {filteredDeals.map((deal, index) => {
           const isAdded = addedIds.includes(deal.id);
           const needsRecheck = !!needsRecheckMap[deal.id];
+          const rankNumber = index + 1;
+          const liveUrl = getLiveCountryUrl(deal);
+          const asin = deal.asin || extractAsinFromUrl(deal.amazonUrl) || 'B0BL4RWX8D';
 
           return (
             <div
               key={deal.id}
-              className={`p-4 rounded-lg bg-white dark:bg-[#18191e] border-2 border-dashed transition-all flex flex-col justify-between space-y-3 ${
+              className={`p-4 rounded-lg bg-white dark:bg-[#18191e] border-2 border-dashed transition-all flex flex-col justify-between space-y-3 relative ${
                 needsRecheck
                   ? 'border-amber-500/80 bg-amber-500/5 opacity-80'
                   : 'border-zinc-300 dark:border-zinc-800 hover:border-amber-500/60'
               }`}
             >
               <div>
-                {/* Header Badges */}
+                {/* Header Badges with Rank #1 - #20 */}
                 <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs font-mono font-black bg-amber-500 text-zinc-950 px-2 py-0.5 rounded shadow-sm flex items-center gap-1">
+                      <TrendingUp className="w-3 h-3" />
+                      RANK #{rankNumber}
+                    </span>
+
                     <span className="text-[10px] font-mono font-bold bg-rose-500/15 text-rose-500 px-2 py-0.5 rounded border border-rose-500/30">
                       {deal.badge}
                     </span>
-                    {deal.addedDate && (
-                      <span className="text-[10px] font-mono text-zinc-500 flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
-                        <Calendar className="w-3 h-3 text-amber-500" /> Added {deal.addedDate}
-                      </span>
-                    )}
+
+                    <span className="text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-500 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                      ASIN: {asin}
+                    </span>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -436,14 +486,8 @@ export const FireDealsView: React.FC<FireDealsViewProps> = ({
                         ? 'bg-amber-500/20 text-amber-500 border-amber-500/40'
                         : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
                     }`}>
-                      {needsRecheck ? '⚠️ NEEDS RECHECK' : 'STILL ACCURATE'}
+                      {needsRecheck ? '⚠️ RECHECK' : 'ACCURATE'}
                     </span>
-                    <button
-                      onClick={() => toggleRecheck(deal.id)}
-                      className="text-[10px] font-mono text-zinc-400 hover:text-amber-500 underline"
-                    >
-                      {needsRecheck ? 'Mark Accurate' : 'Flag Recheck'}
-                    </button>
                   </div>
                 </div>
 
@@ -452,14 +496,27 @@ export const FireDealsView: React.FC<FireDealsViewProps> = ({
                   {deal.title}
                 </h3>
 
-                {/* Category & Price */}
-                <div className="flex items-center gap-3 mt-1.5 text-xs font-mono">
-                  <span className="text-zinc-500 dark:text-zinc-400">
-                    📂 {deal.category}
-                  </span>
-                  <span className="text-amber-500 font-bold">
-                    💰 {deal.priceDiscount}
-                  </span>
+                {/* Category & Price & Live Verify Button */}
+                <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/80 flex-wrap">
+                  <div className="flex items-center gap-2 text-xs font-mono">
+                    <span className="text-zinc-500 dark:text-zinc-400">
+                      📂 {deal.category}
+                    </span>
+                    <span className="text-amber-500 font-bold">
+                      💰 {deal.priceDiscount}
+                    </span>
+                  </div>
+
+                  {/* Direct Live Amazon Product Page Link Verification */}
+                  <a
+                    href={liveUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-sky-500 hover:text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 px-2.5 py-1 rounded border border-sky-500/30 transition-all"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    Verify Live on {selectedMarketplace.domain}
+                  </a>
                 </div>
 
                 {/* Features */}
@@ -488,7 +545,7 @@ export const FireDealsView: React.FC<FireDealsViewProps> = ({
                   className="w-full sm:w-1/2 py-2 px-3 rounded bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-mono font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all active:scale-95"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
-                  ⚡ 1-Click Generate
+                  ⚡ 1-Click Generate Post
                 </button>
               </div>
             </div>
