@@ -52,7 +52,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
         });
 
         if (error) {
-          setErrorMsg(error.message);
+          if (error.message.toLowerCase().includes('failed to fetch')) {
+            setErrorMsg('Connection Failed (Failed to fetch): Unable to reach Supabase server. Please verify your VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your Vercel/Environment Variables, and check your internet connection.');
+          } else {
+            setErrorMsg(error.message);
+          }
         } else if (data.user) {
           setSuccessMsg('Account created successfully! You are now logged in.');
           if (onSuccess) onSuccess();
@@ -64,14 +68,23 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
         });
 
         if (error) {
-          setErrorMsg(error.message);
+          if (error.message.toLowerCase().includes('failed to fetch')) {
+            setErrorMsg('Connection Failed (Failed to fetch): Unable to reach Supabase server. Please verify your VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your Vercel/Environment Variables, and check your internet connection.');
+          } else {
+            setErrorMsg(error.message);
+          }
         } else if (data.session) {
           setSuccessMsg('Signed in successfully!');
           if (onSuccess) onSuccess();
         }
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Authentication error occurred.');
+      const msg = err.message || 'Authentication error occurred.';
+      if (msg.toLowerCase().includes('failed to fetch')) {
+        setErrorMsg('Connection Failed (Failed to fetch): Unable to reach Supabase server. Please verify your VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your Vercel/Environment Variables.');
+      } else {
+        setErrorMsg(msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -151,8 +164,20 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
 
           {/* Alert Messages */}
           {errorMsg && (
-            <div className="p-3 rounded-md bg-rose-500/15 border border-rose-500/40 text-rose-400 text-xs font-mono leading-relaxed">
-              ⚠️ {errorMsg}
+            <div className="p-4 rounded-lg bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs font-mono leading-relaxed space-y-2">
+              <div className="font-bold flex items-center gap-1.5 text-rose-400">
+                <span>⚠️ {errorMsg}</span>
+              </div>
+              {errorMsg.includes('Failed to fetch') && (
+                <div className="mt-2 pt-2 border-t border-rose-500/20 text-[11px] font-sans text-zinc-300 space-y-1">
+                  <p className="font-bold font-mono text-amber-400">কীভাবে এটি ঠিক (Solve) করবেন:</p>
+                  <ol className="list-decimal list-inside space-y-1 pl-1">
+                    <li><b>Vercel Environment Variables:</b> Vercel Dashboard &gt; Project Settings &gt; Environment Variables-এ গিয়ে <code className="text-amber-300 font-mono">VITE_SUPABASE_URL</code> এবং <code className="text-amber-300 font-mono">VITE_SUPABASE_ANON_KEY</code> যোগ করে App টি <b>Redeploy</b> করুন।</li>
+                    <li><b>Supabase Site URL:</b> Supabase Dashboard &gt; Authentication &gt; URL Configuration &gt; <b>Site URL</b> তে <code className="text-amber-300 font-mono">https://affiliate-post-generator-pro.vercel.app</code> দিন।</li>
+                    <li><b>Browser AdBlocker / VPN:</b> আপনার ব্রাউজারের AdBlocker বা VPN বা Brave Shields ব্লক করছে কিনা চেক করুন।</li>
+                  </ol>
+                </div>
+              )}
             </div>
           )}
 
