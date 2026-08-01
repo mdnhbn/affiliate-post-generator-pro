@@ -57,9 +57,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
           } else {
             setErrorMsg(error.message);
           }
-        } else if (data.user) {
+        } else if (data.session) {
           setSuccessMsg('Account created successfully! You are now logged in.');
           if (onSuccess) onSuccess();
+        } else if (data.user) {
+          setSuccessMsg(`✉️ Verification Email Sent! / ইমেইল ভেরিফিকেশন পাঠানো হয়েছে (${email.trim()})! Inbox বা Spam ফোল্ডার দেখুন এবং কনফার্মেশন লিংকে ক্লিক করুন। (অথবা Supabase-এ Email Confirm নিষ্ক্রিয় করতে পারেন)`);
         }
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({
@@ -70,6 +72,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
         if (error) {
           if (error.message.toLowerCase().includes('failed to fetch')) {
             setErrorMsg('Connection Failed (Failed to fetch): Unable to reach Supabase server. Please verify your VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your Vercel/Environment Variables, and check your internet connection.');
+          } else if (error.message.toLowerCase().includes('email not confirmed')) {
+            setErrorMsg('Email not confirmed: Supabase-এ ইমেইল ভেরিফিকেশন অন করা আছে।');
           } else {
             setErrorMsg(error.message);
           }
@@ -176,6 +180,20 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
                     <li><b>Supabase Site URL:</b> Supabase Dashboard &gt; Authentication &gt; URL Configuration &gt; <b>Site URL</b> তে <code className="text-amber-300 font-mono">https://affiliate-post-generator-pro.vercel.app</code> দিন।</li>
                     <li><b>Browser AdBlocker / VPN:</b> আপনার ব্রাউজারের AdBlocker বা VPN বা Brave Shields ব্লক করছে কিনা চেক করুন।</li>
                   </ol>
+                </div>
+              )}
+              {errorMsg.toLowerCase().includes('email not confirmed') && (
+                <div className="mt-2 pt-2 border-t border-rose-500/20 text-[11px] font-sans text-zinc-300 space-y-2">
+                  <p className="font-bold font-mono text-amber-400">কীভাবে সাইন ইন করবেন (২টি সমাধান):</p>
+                  <div className="space-y-1 pl-1">
+                    <p><b>১. ইমেইল ইনবক্স চেক করুন:</b> আপনার ইমেইল (<code className="text-amber-300 font-mono">mdnhbn@gmail.com</code>) এর Inbox বা Spam ফোল্ডারে Supabase থেকে আসা কনফার্মেশন লিংকে ক্লিক করুন।</p>
+                    <p className="text-zinc-400 font-bold my-1">--- অথবা (সরাসরি ভেরিফিকেশন ছাড়া লগইন করতে) ---</p>
+                    <p><b>২. Supabase-এ Email Confirm বন্ধ করুন:</b></p>
+                    <ol className="list-decimal list-inside space-y-1 text-zinc-300 pl-1">
+                      <li>Supabase Dashboard &gt; <b>Authentication</b> &gt; <b>Providers</b>-এ যান।</li>
+                      <li><b>Email</b> অপশনে ক্লিক করে <b>"Confirm email"</b> সুইচটি <b>OFF / Disable</b> করে Save চাপুন।</li>
+                    </ol>
+                  </div>
                 </div>
               )}
             </div>

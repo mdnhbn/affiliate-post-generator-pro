@@ -35,6 +35,7 @@ import { HistoryView } from './components/HistoryView';
 import { AnalyticsView } from './components/AnalyticsView';
 import { SettingsView } from './components/SettingsView';
 import { AuthScreen } from './components/AuthScreen';
+import { UserProfileModal } from './components/UserProfileModal';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('generate');
@@ -54,6 +55,7 @@ export default function App() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [authLoading, setAuthLoading] = useState<boolean>(true);
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+  const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
 
   const isConfigured = isSupabaseConfigured();
 
@@ -276,7 +278,23 @@ export default function App() {
         userDisplayName={userProfile?.display_name}
         onSignOut={handleSignOut}
         onOpenAuth={() => setShowAuthModal(true)}
+        onOpenProfile={() => setShowProfileModal(true)}
       />
+
+      {/* User Profile & Database Status Modal */}
+      {showProfileModal && (
+        <UserProfileModal
+          session={session}
+          userProfile={userProfile}
+          productsCount={products.length}
+          historyCount={history.length}
+          onClose={() => setShowProfileModal(false)}
+          onSignOut={handleSignOut}
+          onProfileUpdated={() => {
+            if (session?.user?.id) loadSupabaseData(session.user.id);
+          }}
+        />
+      )}
 
       {/* Shortcuts Fast Action Bar */}
       <ShortcutsBar

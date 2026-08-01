@@ -12,6 +12,7 @@ interface HeaderProps {
   userDisplayName?: string;
   onSignOut?: () => void;
   onOpenAuth?: () => void;
+  onOpenProfile?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({ 
@@ -23,6 +24,7 @@ export const Header: React.FC<HeaderProps> = ({
   userDisplayName,
   onSignOut,
   onOpenAuth,
+  onOpenProfile,
 }) => {
   const activeKeys = settings.provider === 'gemini' 
     ? settings.geminiKeys.filter(k => k.key.trim())
@@ -71,13 +73,19 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Right Actions */}
         <div className="flex items-center gap-2.5">
           
-          {/* User Account Badge & Sign Out / Sign In */}
+          {/* User Account Badge & Profile Modal / Sign Out */}
           {userEmail ? (
-            <div className="flex items-center gap-1.5 bg-zinc-800/80 px-2.5 py-1.5 rounded-md border border-zinc-700 text-xs font-mono">
-              <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="font-bold text-zinc-200 hidden md:inline truncate max-w-[120px]">
-                {userDisplayName || userEmail.split('@')[0]}
-              </span>
+            <div className="flex items-center gap-1.5 bg-zinc-800/80 hover:bg-zinc-800 px-2.5 py-1.5 rounded-md border border-zinc-700 text-xs font-mono transition-colors">
+              <button
+                onClick={onOpenProfile}
+                className="flex items-center gap-1.5 hover:text-amber-400 transition-colors"
+                title="View Cloud Profile & Database Info"
+              >
+                <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="font-bold text-zinc-200 hidden md:inline truncate max-w-[120px]">
+                  {userDisplayName || userEmail.split('@')[0]}
+                </span>
+              </button>
               {onSignOut && (
                 <button
                   onClick={onSignOut}

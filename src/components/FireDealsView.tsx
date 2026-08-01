@@ -20,20 +20,66 @@ export const FireDealsView: React.FC<FireDealsViewProps> = ({
   const [addedIds, setAddedIds] = useState<string[]>([]);
   const [needsRecheckMap, setNeedsRecheckMap] = useState<Record<string, boolean>>({});
 
+  const [hideDemoDeals, setHideDemoDeals] = useState<boolean>(() => {
+    return localStorage.getItem('affiliate_hide_demo_fire_deals') === 'true';
+  });
+  const [customDeals, setCustomDeals] = useState<FireDealProduct[]>(() => {
+    try {
+      const saved = localStorage.getItem('affiliate_custom_fire_deals');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newUrl, setNewUrl] = useState('');
+  const [newPrice, setNewPrice] = useState('');
+  const [newCategory, setNewCategory] = useState('Tech & Electronics');
+  const [newFeatures, setNewFeatures] = useState('');
+
   const defaultTag = settings.defaultAffiliateTag || 'yourtag-20';
 
-  const categories = [
-    'All',
-    'Tech & Electronics',
-    'Smart Home',
-    'Kitchen & Dining',
-    'Fitness & Health',
-    'Beauty & Personal Care',
-    'Fashion & Accessories',
-  ];
+  const toggleHideDemoDeals = () => {
+    const nextVal = !hideDemoDeals;
+    setHideDemoDeals(nextVal);
+    localStorage.setItem('affiliate_hide_demo_fire_deals', String(nextVal));
+  };
+
+  const handleAddCustomDeal = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTitle.trim() || !newUrl.trim()) return;
+
+    const newDeal: FireDealProduct = {
+      id: `custom-deal-${Date.now()}`,
+      title: newTitle.trim(),
+      amazonUrl: newUrl.trim(),
+      category: newCategory,
+      priceDiscount: newPrice.trim() || 'Custom Deal',
+      badge: '🔥 USER DEAL',
+      features: newFeatures.trim() || 'Custom user added deal product.',
+      addedDate: new Date().toLocaleDateString(),
+    };
+
+    const updated = [newDeal, ...customDeals];
+    setCustomDeals(updated);
+    localStorage.setItem('affiliate_custom_fire_deals', JSON.stringify(updated));
+
+    setNewTitle('');
+    setNewUrl('');
+    setNewPrice('');
+    setNewFeatures('');
+    setShowAddModal(false);
+  };
+
+  const activeDeals = useMemo(() => {
+    const base = hideDemoDeals ? customDeals : [...customDeals, ...AMAZON_FIRE_DEALS];
+    return base;
+  }, [hideDemoDeals, customDeals]);
 
   const filteredDeals = useMemo(() => {
-    return AMAZON_FIRE_DEALS.filter((deal) => {
+    return activeDeals.filter((deal) => {
       const matchesCategory = selectedCategory === 'All' || deal.category === selectedCategory;
       const matchesSearch = 
         deal.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -42,7 +88,7 @@ export const FireDealsView: React.FC<FireDealsViewProps> = ({
 
       return matchesCategory && matchesSearch;
     });
-  }, [selectedCategory, searchQuery]);
+  }, [activeDeals, selectedCategory, searchQuery]);
 
   const toggleRecheck = (id: string) => {
     setNeedsRecheckMap((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -93,15 +139,123 @@ export const FireDealsView: React.FC<FireDealsViewProps> = ({
             Amazon Fire Deals & Best Sellers Catalog
           </h2>
           <p className="text-xs text-zinc-400 mt-1">
-            Handpicked high-converting products updated weekly. Select any deal to generate viral posts or save to library in 1-Click with tag <span className="text-amber-400 font-mono font-bold">"{defaultTag}"</span>.
+            Handpicked high-converting products. Tag applied: <span className="text-amber-400 font-mono font-bold">"{defaultTag}"</span>.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-rose-500/10 border border-rose-500/30 text-rose-400 font-mono text-xs font-bold">
-          <TrendingUp className="w-4 h-4" />
-          EST. COMMISSION: 8% - 10%
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="px-3 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-zinc-950 font-mono text-xs font-bold flex items-center gap-1 shadow-sm"
+          >
+            <Plus className="w-3.5 h-3.5" /> Add Deal
+          </button>
+
+          <button
+            onClick={toggleHideDemoDeals}
+            className={`px-3 py-1.5 rounded font-mono text-xs font-bold flex items-center gap-1 border transition-all ${
+              hideDemoDeals
+                ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/40'
+                : 'bg-rose-500/15 text-rose-400 border-rose-500/40 hover:bg-rose-500/25'
+            }`}
+          >
+            {hideDemoDeals ? 'Show Demo Deals' : '🗑️ Clear / Hide Demo Deals'}
+          </button>
         </div>
       </div>
+
+      {/* Add Custom Deal Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#18191e] border-2 border-dashed border-amber-500 rounded-xl w-full max-w-md p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-2">
+              <h3 className="font-mono font-bold text-sm uppercase text-zinc-900 dark:text-zinc-100">
+                Add Custom Amazon Fire Deal
+              </h3>
+              <button onClick={() => setShowAddModal(false)} className="text-zinc-400 hover:text-zinc-100 font-bold">✕</button>
+            </div>
+
+            <form onSubmit={handleAddCustomDeal} className="space-y-3">
+              <div>
+                <label className="block text-xs font-mono text-zinc-700 dark:text-zinc-300 mb-1">Product Title</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Sony WH-1000XM5 Headphones"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  className="w-full px-3 py-1.5 rounded bg-zinc-50 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-xs font-mono text-zinc-900 dark:text-zinc-100"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-mono text-zinc-700 dark:text-zinc-300 mb-1">Amazon Product URL</label>
+                <input
+                  type="url"
+                  required
+                  placeholder="https://www.amazon.com/dp/B09XS7JWHH"
+                  value={newUrl}
+                  onChange={(e) => setNewUrl(e.target.value)}
+                  className="w-full px-3 py-1.5 rounded bg-zinc-50 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-xs font-mono text-zinc-900 dark:text-zinc-100"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-mono text-zinc-700 dark:text-zinc-300 mb-1">Category</label>
+                  <select
+                    value={newCategory}
+                    onChange={(e) => setNewCategory(e.target.value)}
+                    className="w-full px-2 py-1.5 rounded bg-zinc-50 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-xs font-mono text-zinc-900 dark:text-zinc-100"
+                  >
+                    {categories.filter(c => c !== 'All').map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-mono text-zinc-700 dark:text-zinc-300 mb-1">Price / Discount</label>
+                  <input
+                    type="text"
+                    placeholder="$199 (20% OFF)"
+                    value={newPrice}
+                    onChange={(e) => setNewPrice(e.target.value)}
+                    className="w-full px-3 py-1.5 rounded bg-zinc-50 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-xs font-mono text-zinc-900 dark:text-zinc-100"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-mono text-zinc-700 dark:text-zinc-300 mb-1">Features / Selling Points</label>
+                <textarea
+                  rows={2}
+                  placeholder="Key features..."
+                  value={newFeatures}
+                  onChange={(e) => setNewFeatures(e.target.value)}
+                  className="w-full px-3 py-1.5 rounded bg-zinc-50 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-xs font-mono text-zinc-900 dark:text-zinc-100"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="px-3 py-1.5 rounded bg-zinc-200 dark:bg-zinc-800 text-xs font-mono text-zinc-700 dark:text-zinc-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-zinc-950 font-mono text-xs font-bold"
+                >
+                  Save Deal
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Category Pills & Search Bar */}
       <div className="space-y-3 bg-white dark:bg-[#18191e] p-4 rounded-lg border-2 border-dashed border-zinc-200 dark:border-zinc-800">
