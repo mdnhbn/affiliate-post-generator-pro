@@ -22,7 +22,9 @@ import {
   Download,
   Upload,
   Database,
-  Copy
+  Copy,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { Barcode } from './Barcode';
 import { encryptText, decryptText } from '../utils/crypto';
@@ -73,6 +75,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [newKeyLabel, setNewKeyLabel] = useState('');
   const [savedFeedback, setSavedFeedback] = useState(false);
   const [copiedRlsSql, setCopiedRlsSql] = useState(false);
+  const [showRlsScript, setShowRlsScript] = useState(false);
 
   // Data Export / Backup Handler
   const handleExportBackup = () => {
@@ -705,32 +708,46 @@ CREATE POLICY "User history access" ON post_history
         </div>
       </div>
 
-      {/* 5. Security & Supabase Row Level Security (RLS) Helper */}
-      <div className="p-5 rounded-lg bg-white dark:bg-[#18191e] border-2 border-dashed border-emerald-500/40 space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="font-mono font-bold text-sm text-zinc-900 dark:text-zinc-100 uppercase flex items-center gap-2">
+      {/* 5. Security & Supabase Row Level Security (RLS) Helper (Collapsible) */}
+      <div className="p-4 rounded-lg bg-white dark:bg-[#18191e] border border-zinc-200 dark:border-zinc-800 space-y-3">
+        <button
+          type="button"
+          onClick={() => setShowRlsScript(!showRlsScript)}
+          className="w-full flex items-center justify-between text-left group cursor-pointer"
+        >
+          <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            Supabase Row-Level Security (RLS) & Multi-Tenant Rules
-          </h3>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/30">
-            Database Protection
-          </span>
-        </div>
+            <span className="font-mono font-bold text-xs text-zinc-900 dark:text-zinc-100 uppercase">
+              Supabase RLS Security Script (Developer Reference)
+            </span>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+              Optional SQL
+            </span>
+          </div>
+          <div className="flex items-center gap-2 text-xs font-mono text-zinc-500 group-hover:text-amber-400 transition-colors">
+            {showRlsScript ? 'Hide Script' : 'View SQL Script'}
+            {showRlsScript ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </div>
+        </button>
 
-        <p className="text-xs text-zinc-600 dark:text-zinc-300 font-sans">
-          Supabase-এ আপনার ডেটা যেন শুধু আপনার একাউন্ট থেকেই দেখা যায়, তার জন্য Row-Level Security (RLS) কার্যকর থাকে। আপনার Supabase Dashboard &gt; SQL Editor-এ নিচের স্ক্রিপ্টটি রান করে শতভাগ সুরক্ষা নিশ্চিত করতে পারেন:
-        </p>
+        {showRlsScript && (
+          <div className="pt-2 space-y-3 border-t border-zinc-200 dark:border-zinc-800">
+            <p className="text-xs text-zinc-600 dark:text-zinc-300 font-sans">
+              Supabase-এ আপনার ডেটা যেন শুধু আপনার একাউন্ট থেকেই দেখা যায়, তার জন্য Row-Level Security (RLS) কার্যকর রাখা ভালো। Supabase Dashboard &gt; SQL Editor-এ দরকার হলে এই স্ক্রিপ্টটি রান করতে পারেন:
+            </p>
 
-        <div className="relative bg-zinc-950 p-3 rounded border border-zinc-800 font-mono text-[11px] text-emerald-400 overflow-x-auto">
-          <button
-            onClick={copyRlsSql}
-            className="absolute top-2 right-2 px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[10px] font-bold flex items-center gap-1 border border-zinc-700"
-          >
-            {copiedRlsSql ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-            {copiedRlsSql ? 'Copied!' : 'Copy SQL Script'}
-          </button>
-          <pre className="pr-20 whitespace-pre-wrap">{rlsSqlScript}</pre>
-        </div>
+            <div className="relative bg-zinc-950 p-3 rounded border border-zinc-800 font-mono text-[11px] text-emerald-400 overflow-x-auto">
+              <button
+                onClick={copyRlsSql}
+                className="absolute top-2 right-2 px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[10px] font-bold flex items-center gap-1 border border-zinc-700"
+              >
+                {copiedRlsSql ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                {copiedRlsSql ? 'Copied!' : 'Copy SQL Script'}
+              </button>
+              <pre className="pr-20 whitespace-pre-wrap">{rlsSqlScript}</pre>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Save Action Footer */}
