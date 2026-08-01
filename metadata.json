@@ -1,0 +1,6 @@
+{
+  "name": "Affiliate Post Generator Pro",
+  "description": "A browser-only AI content studio for Amazon affiliate marketers to create viral, multilingual social posts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
