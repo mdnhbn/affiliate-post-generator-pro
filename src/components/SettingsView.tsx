@@ -18,7 +18,11 @@ import {
   Tag, 
   ShieldCheck,
   Info,
-  Globe
+  Globe,
+  Download,
+  Upload,
+  Database,
+  Copy
 } from 'lucide-react';
 import { Barcode } from './Barcode';
 import { encryptText, decryptText } from '../utils/crypto';
@@ -68,6 +72,81 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [newKeyInput, setNewKeyInput] = useState('');
   const [newKeyLabel, setNewKeyLabel] = useState('');
   const [savedFeedback, setSavedFeedback] = useState(false);
+  const [copiedRlsSql, setCopiedRlsSql] = useState(false);
+
+  // Data Export / Backup Handler
+  const handleExportBackup = () => {
+    try {
+      const backupData = {
+        exportDate: new Date().toISOString(),
+        version: '2.5',
+        settings,
+        products: JSON.parse(localStorage.getItem('affiliate_products') || '[]'),
+        history: JSON.parse(localStorage.getItem('affiliate_post_history') || '[]'),
+        customFireDeals: JSON.parse(localStorage.getItem('affiliate_custom_fire_deals') || '[]'),
+      };
+
+      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(backupData, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute('href', dataStr);
+      downloadAnchor.setAttribute('download', `affiliate_pro_vault_backup_${new Date().toISOString().slice(0, 10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    } catch (e) {
+      alert('Backup Export failed: ' + e);
+    }
+  };
+
+  // Data Import / Restore Handler
+  const handleImportBackup = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const fileReader = new FileReader();
+    if (event.target.files && event.target.files[0]) {
+      fileReader.readAsText(event.target.files[0], 'UTF-8');
+      fileReader.onload = (e) => {
+        try {
+          const parsed = JSON.parse(e.target?.result as string);
+          if (parsed.settings) {
+            onSaveSettings(parsed.settings);
+          }
+          if (Array.isArray(parsed.products)) {
+            localStorage.setItem('affiliate_products', JSON.stringify(parsed.products));
+          }
+          if (Array.isArray(parsed.history)) {
+            localStorage.setItem('affiliate_post_history', JSON.stringify(parsed.history));
+          }
+          if (Array.isArray(parsed.customFireDeals)) {
+            localStorage.setItem('affiliate_custom_fire_deals', JSON.stringify(parsed.customFireDeals));
+          }
+          alert('Backup restored successfully! Application reloaded.');
+          window.location.reload();
+        } catch (err) {
+          alert('Invalid backup JSON file.');
+        }
+      };
+    }
+  };
+
+  const rlsSqlScript = `-- Supabase Row-Level Security (RLS) SQL Script
+ALTER TABLE products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE post_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+
+-- Product Policy
+CREATE POLICY "User product access" ON products
+  FOR ALL USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- Post History Policy
+CREATE POLICY "User history access" ON post_history
+  FOR ALL USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);`;
+
+  const copyRlsSql = () => {
+    navigator.clipboard.writeText(rlsSqlScript);
+    setCopiedRlsSql(true);
+    setTimeout(() => setCopiedRlsSql(false), 2000);
+  };
 
   // Key Handlers
   const handleAddKey = (targetProvider: 'gemini' | 'openrouter') => {
@@ -586,6 +665,71 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </select>
           </div>
 
+        </div>
+      </div>
+
+      {/* 4. Full Data Backup & Restoration System */}
+      <div className="p-5 rounded-lg bg-white dark:bg-[#18191e] border-2 border-dashed border-zinc-200 dark:border-zinc-800 space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="font-mono font-bold text-sm text-zinc-900 dark:text-zinc-100 uppercase flex items-center gap-2">
+            <Download className="w-4 h-4 text-emerald-400" />
+            1-Click Data Backup & Restore (JSON Export)
+          </h3>
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+            Vault Backup v2.5
+          </span>
+        </div>
+        <p className="text-xs text-zinc-600 dark:text-zinc-400 font-sans">
+          আপনার সমস্ত প্রোডাক্ট, পোস্ট হিস্টোরি, কাস্টম ডিল এবং এপিআই কনফিগারেশন একটি ফাইলে ডাউনলোড করে রাখুন। প্রয়োজনে এক ক্লিকে রিস্টোর করতে পারবেন।
+        </p>
+
+        <div className="flex flex-wrap items-center gap-3 pt-2">
+          <button
+            onClick={handleExportBackup}
+            className="flex items-center gap-1.5 px-4 py-2 rounded bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold font-mono text-xs shadow-sm transition-all"
+          >
+            <Download className="w-4 h-4" />
+            Export Full JSON Backup
+          </button>
+
+          <label className="flex items-center gap-1.5 px-4 py-2 rounded bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 font-bold font-mono text-xs border border-zinc-300 dark:border-zinc-700 cursor-pointer transition-all">
+            <Upload className="w-4 h-4 text-amber-500" />
+            Restore from Backup File
+            <input
+              type="file"
+              accept=".json"
+              onChange={handleImportBackup}
+              className="hidden"
+            />
+          </label>
+        </div>
+      </div>
+
+      {/* 5. Security & Supabase Row Level Security (RLS) Helper */}
+      <div className="p-5 rounded-lg bg-white dark:bg-[#18191e] border-2 border-dashed border-emerald-500/40 space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="font-mono font-bold text-sm text-zinc-900 dark:text-zinc-100 uppercase flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            Supabase Row-Level Security (RLS) & Multi-Tenant Rules
+          </h3>
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/30">
+            Database Protection
+          </span>
+        </div>
+
+        <p className="text-xs text-zinc-600 dark:text-zinc-300 font-sans">
+          Supabase-এ আপনার ডেটা যেন শুধু আপনার একাউন্ট থেকেই দেখা যায়, তার জন্য Row-Level Security (RLS) কার্যকর থাকে। আপনার Supabase Dashboard &gt; SQL Editor-এ নিচের স্ক্রিপ্টটি রান করে শতভাগ সুরক্ষা নিশ্চিত করতে পারেন:
+        </p>
+
+        <div className="relative bg-zinc-950 p-3 rounded border border-zinc-800 font-mono text-[11px] text-emerald-400 overflow-x-auto">
+          <button
+            onClick={copyRlsSql}
+            className="absolute top-2 right-2 px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[10px] font-bold flex items-center gap-1 border border-zinc-700"
+          >
+            {copiedRlsSql ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+            {copiedRlsSql ? 'Copied!' : 'Copy SQL Script'}
+          </button>
+          <pre className="pr-20 whitespace-pre-wrap">{rlsSqlScript}</pre>
         </div>
       </div>
 
