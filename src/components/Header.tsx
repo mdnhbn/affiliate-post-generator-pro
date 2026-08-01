@@ -11,6 +11,7 @@ interface HeaderProps {
   userEmail?: string;
   userDisplayName?: string;
   onSignOut?: () => void;
+  onOpenAuth?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({ 
@@ -21,6 +22,7 @@ export const Header: React.FC<HeaderProps> = ({
   userEmail,
   userDisplayName,
   onSignOut,
+  onOpenAuth,
 }) => {
   const activeKeys = settings.provider === 'gemini' 
     ? settings.geminiKeys.filter(k => k.key.trim())
@@ -69,9 +71,9 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Right Actions */}
         <div className="flex items-center gap-2.5">
           
-          {/* User Account Badge & Sign Out */}
-          {userEmail && (
-            <div className="flex items-center gap-1.5 bg-zinc-800/80 px-2.5 py-1 rounded-md border border-zinc-700 text-xs font-mono">
+          {/* User Account Badge & Sign Out / Sign In */}
+          {userEmail ? (
+            <div className="flex items-center gap-1.5 bg-zinc-800/80 px-2.5 py-1.5 rounded-md border border-zinc-700 text-xs font-mono">
               <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
               <span className="font-bold text-zinc-200 hidden md:inline truncate max-w-[120px]">
                 {userDisplayName || userEmail.split('@')[0]}
@@ -86,6 +88,14 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               )}
             </div>
+          ) : (
+            <button
+              onClick={onOpenAuth}
+              className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold font-mono px-3 py-1.5 rounded-md border border-amber-400 text-xs shadow-md shadow-amber-500/20 transition-all uppercase tracking-wide"
+            >
+              <UserCheck className="w-3.5 h-3.5" />
+              <span>Sign In / Sign Up</span>
+            </button>
           )}
 
           {/* Active Key Status Badge */}

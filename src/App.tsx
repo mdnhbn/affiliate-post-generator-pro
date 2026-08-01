@@ -53,6 +53,7 @@ export default function App() {
   const [session, setSession] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [authLoading, setAuthLoading] = useState<boolean>(true);
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
 
   const isConfigured = isSupabaseConfigured();
 
@@ -60,7 +61,7 @@ export default function App() {
   useEffect(() => {
     if (!isConfigured) {
       setAuthLoading(false);
-      // Fallback load local data
+      // Load local stored user data
       setProducts(getStoredProducts());
       setHistory(getStoredHistory());
       setAnalytics(getStoredAnalytics());
@@ -107,12 +108,9 @@ export default function App() {
 
       setUserProfile(profile);
 
-      // Merge or fallback to local defaults if empty
-      const finalProds = supaProds.length > 0 ? supaProds : getStoredProducts();
-      const finalHist = supaHist.length > 0 ? supaHist : getStoredHistory();
-
-      setProducts(finalProds);
-      setHistory(finalHist);
+      // Clean load without demo fallbacks
+      setProducts(supaProds);
+      setHistory(supaHist);
       setAnalytics(getStoredAnalytics());
       setSettings(supaSett);
     } catch (err) {
@@ -235,7 +233,7 @@ export default function App() {
     }
   };
 
-  // Auth Guard: Show AuthScreen if Supabase is configured and no user session exists
+  // Auth Guard: Show AuthScreen if Supabase is configured and no user session exists, or if user clicked Sign In
   if (isConfigured && authLoading) {
     return (
       <div className="min-h-screen bg-zinc-950 text-amber-500 font-mono flex items-center justify-center p-4">
@@ -247,8 +245,22 @@ export default function App() {
     );
   }
 
-  if (isConfigured && !session) {
-    return <AuthScreen onSuccess={() => {}} />;
+  if ((isConfigured && !session) || showAuthModal) {
+    return (
+      <div className="relative">
+        {showAuthModal && session && (
+          <div className="absolute top-4 right-4 z-50">
+            <button
+              onClick={() => setShowAuthModal(false)}
+              className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-4 py-2 rounded-md font-mono text-xs border border-zinc-700"
+            >
+              ← Back to App
+            </button>
+          </div>
+        )}
+        <AuthScreen onSuccess={() => setShowAuthModal(false)} />
+      </div>
+    );
   }
 
   return (
@@ -263,6 +275,7 @@ export default function App() {
         userEmail={session?.user?.email}
         userDisplayName={userProfile?.display_name}
         onSignOut={handleSignOut}
+        onOpenAuth={() => setShowAuthModal(true)}
       />
 
       {/* Shortcuts Fast Action Bar */}
