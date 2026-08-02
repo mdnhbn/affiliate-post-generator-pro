@@ -11,7 +11,6 @@ interface UserProfileModalProps {
   onClose: () => void;
   onSignOut: () => void;
   onProfileUpdated?: () => void;
-  onToggleAdminOverride?: (val: boolean) => void;
 }
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({
@@ -23,7 +22,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onClose,
   onSignOut,
   onProfileUpdated,
-  onToggleAdminOverride,
 }) => {
   const user = session?.user;
   const email = user?.email || 'user@example.com';
@@ -134,45 +132,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Admin Access Toggle Box */}
-        <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-between text-xs font-mono">
-          <div className="flex items-center gap-2">
-            <Shield className="w-4 h-4 text-amber-400" />
-            <div>
-              <div className="font-bold text-amber-400">Admin Panel Navigation</div>
-              <div className="text-[10px] text-zinc-400">
-                {isAdmin ? 'Admin Panel active in Sidebar' : 'Enable Admin Panel access for Ads & Users'}
-              </div>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              const newStatus = !isAdmin;
-              if (onToggleAdminOverride) onToggleAdminOverride(newStatus);
-              if (user) {
-                supabase.from('profiles').upsert({
-                  id: user.id,
-                  email,
-                  display_name: displayName,
-                  is_admin: newStatus,
-                }).then(({ error }) => {
-                  if (error) console.error('Failed to sync admin status to Supabase:', error);
-                  if (onProfileUpdated) onProfileUpdated();
-                });
-              }
-            }}
-            className={`px-3 py-1.5 rounded text-xs font-bold font-mono transition-all border ${
-              isAdmin
-                ? 'bg-amber-500 text-zinc-950 border-amber-400 hover:bg-amber-400'
-                : 'bg-zinc-800 text-zinc-200 border-zinc-700 hover:bg-amber-500 hover:text-zinc-950'
-            }`}
-          >
-            {isAdmin ? 'Disable Admin' : 'Enable Admin'}
-          </button>
         </div>
 
         {/* Display Name Edit Form */}
