@@ -275,14 +275,77 @@ export async function saveSupabaseSettings(userId: string, settings: Settings): 
 export async function fetchUserProfile(userId: string): Promise<UserProfile | null> {
   if (!isSupabaseConfigured() || !userId) return null;
 
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', userId)
-    .single();
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
 
-  if (error || !data) return null;
-  return data as UserProfile;
+    if (error) {
+      console.error('[fetchUserProfile] Error fetching profile from Supabase:', error);
+    }
+
+    // Explicit console.log of fetched profile object as requested
+    console.log('[fetchUserProfile] Fetched profile object:', data);
+
+    if (data) {
+      const isAdmin = Boolean(
+        data.is_admin === true || 
+        data.is_admin === 1 || 
+        (typeof data.is_admin === 'string' && (data.is_admin as string).toLowerCase() === 'true')
+      );
+
+      return {
+        id: data.id,
+        email: data.email || '',
+        display_name: data.display_name || '',
+        is_admin: isAdmin,
+        created_at: data.created_at,
+      };
+    }
+
+    // Fallback: If no profile row exists yet, attempt auto-creation for logged-in user
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user && user.id === userId) {
+      const email = user.email || '';
+      const displayName = user.user_metadata?.display_name || user.user_metadata?.full_name || email.split('@')[0] || 'User';
+
+      const newProfileRow = {
+        id: userId,
+        email,
+        display_name: displayName,
+        is_admin: false,
+        created_at: new Date().toISOString(),
+      };
+
+      const { data: createdData, error: createError } = await supabase
+        .from('profiles')
+        .upsert(newProfileRow)
+        .select()
+        .maybeSingle();
+
+      if (!createError && createdData) {
+        console.log('[fetchUserProfile] Created new profile object:', createdData);
+        return {
+          id: createdData.id,
+          email: createdData.email || email,
+          display_name: createdData.display_name || displayName,
+          is_admin: Boolean(
+            createdData.is_admin === true || 
+            createdData.is_admin === 1 || 
+            (typeof createdData.is_admin === 'string' && (createdData.is_admin as string).toLowerCase() === 'true')
+          ),
+          created_at: createdData.created_at,
+        };
+      }
+    }
+
+    return null;
+  } catch (err) {
+    console.error('[fetchUserProfile] Exception in fetchUserProfile:', err);
+    return null;
+  }
 }
 
 // -------------------------------------------------------------

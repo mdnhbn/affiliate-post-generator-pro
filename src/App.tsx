@@ -100,16 +100,43 @@ export default function App() {
     };
   }, [isConfigured]);
 
+  // Calculate admin state safely across string 'true', boolean true, or integer 1
+  const isUserAdmin = Boolean(
+    userProfile?.is_admin === true || 
+    userProfile?.is_admin === 1 || 
+    (typeof userProfile?.is_admin === 'string' && (userProfile?.is_admin as string).toLowerCase() === 'true')
+  );
+
   // Load User Data from Supabase
   const loadSupabaseData = async (userId: string) => {
     setAuthLoading(true);
     try {
+      // Safely fetch all data, preventing secondary table errors from breaking profile state
+      const profilePromise = fetchUserProfile(userId).catch(err => {
+        console.error('[loadSupabaseData] Error fetching user profile:', err);
+        return null;
+      });
+      const prodsPromise = fetchSupabaseProducts(userId).catch(err => {
+        console.error('[loadSupabaseData] Error fetching products:', err);
+        return [];
+      });
+      const histPromise = fetchSupabaseHistory(userId).catch(err => {
+        console.error('[loadSupabaseData] Error fetching history:', err);
+        return [];
+      });
+      const settPromise = fetchSupabaseSettings(userId, getStoredSettings()).catch(err => {
+        console.error('[loadSupabaseData] Error fetching settings:', err);
+        return getStoredSettings();
+      });
+
       const [profile, supaProds, supaHist, supaSett] = await Promise.all([
-        fetchUserProfile(userId),
-        fetchSupabaseProducts(userId),
-        fetchSupabaseHistory(userId),
-        fetchSupabaseSettings(userId, getStoredSettings()),
+        profilePromise,
+        prodsPromise,
+        histPromise,
+        settPromise,
       ]);
+
+      console.log('[loadSupabaseData] Loaded profile:', profile, '-> isUserAdmin:', Boolean(profile?.is_admin));
 
       setUserProfile(profile);
 
@@ -142,10 +169,10 @@ export default function App() {
 
   // Route guard: Redirect non-admins away from admin panel
   useEffect(() => {
-    if (activeTab === 'admin' && (!userProfile || !userProfile.is_admin)) {
+    if (activeTab === 'admin' && !isUserAdmin) {
       setActiveTab('generate');
     }
-  }, [activeTab, userProfile]);
+  }, [activeTab, isUserAdmin]);
 
   // Handlers for Products
   const handleAddProduct = (newProd: Omit<Product, 'id' | 'createdAt'>) => {
@@ -325,7 +352,7 @@ export default function App() {
           productsCount={products.length}
           historyCount={history.length}
           analyticsCount={analytics.length}
-          isAdmin={userProfile?.is_admin === true}
+          isAdmin={isUserAdmin}
         />
 
         {/* Main Content Workspace */}
@@ -394,7 +421,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'admin' && userProfile?.is_admin && (
+          {activeTab === 'admin' && isUserAdmin && (
             <AdminView />
           )}
         </main>
