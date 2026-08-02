@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UserCheck, Shield, Database, KeyRound, LogOut, Package, History, Mail, User, X, Check, Cloud } from 'lucide-react';
+import { UserCheck, Shield, Database, KeyRound, LogOut, Package, History, Mail, User, X, Check } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
 interface UserProfileModalProps {
@@ -158,20 +158,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             </div>
           </div>
         </form>
-
-        {/* Data Location & Privacy Notice */}
-        <div className="p-3.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs font-sans text-zinc-800 dark:text-zinc-200 space-y-2">
-          <div className="font-bold font-mono text-emerald-400 flex items-center gap-1.5">
-            <Cloud className="w-4 h-4" />
-            আপনার ডেটা কোথায় কীভাবে সংরক্ষিত থাকে?
-          </div>
-          <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
-            ১. <b>পোস্ট ও প্রোডাক্ট:</b> আপনার তৈরি করা সমস্ত Amazon প্রোডাক্ট এবং Post History সরাসরি <b>Supabase Cloud PostgreSQL Database</b>-এ সম্পূর্ণ এনক্রিপ্টেড এবং ইউজার আইডি দিয়ে আলাদা সংরক্ষিত থাকে।
-          </p>
-          <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
-            ২. <b>API Keys:</b> আপনার দেওয়া Gemini বা OpenRouter API Key গুলি আপনার নিজস্বSupabase Vault-এ সেভ থাকে, যা অন্য কোনো ব্যবহারকারী দেখতে পাবে না (Row-Level Security Enabled)।
-          </p>
-        </div>
 
         {/* Account Details & Sign Out */}
         <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
