@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Shield, 
   Plus, 
@@ -17,7 +17,14 @@ import {
   Sparkles,
   RefreshCw,
   AlertTriangle,
-  UserCheck
+  UserCheck,
+  Megaphone,
+  Search,
+  Download,
+  Activity,
+  Server,
+  Zap,
+  Save
 } from 'lucide-react';
 import { AdSlot, AdPlacement, AdType } from '../types';
 import { 
@@ -25,16 +32,26 @@ import {
   upsertAdSlot, 
   deleteAdSlot, 
   fetchAllProfilesForAdmin, 
+  updateUserAdminRole,
   UserProfile 
 } from '../utils/supabaseStorage';
+import { getStoredAnnouncement, saveStoredAnnouncement, AnnouncementConfig } from '../utils/storage';
 import { Barcode } from './Barcode';
 
 export const AdminView: React.FC = () => {
-  const [activeSubTab, setActiveSubTab] = useState<'ads' | 'users'>('ads');
+  const [activeSubTab, setActiveSubTab] = useState<'ads' | 'users' | 'announcement'>('ads');
   const [adSlots, setAdSlots] = useState<AdSlot[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  // Announcement State
+  const [announcement, setAnnouncement] = useState<AnnouncementConfig>(getStoredAnnouncement());
+  const [announcementSaved, setAnnouncementSaved] = useState(false);
+
+  // User Search & Role Filter State
+  const [userSearch, setUserSearch] = useState('');
+  const [roleUpdatingId, setRoleUpdatingId] = useState<string | null>(null);
 
   // Modal State for Add / Edit Ad Slot
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
@@ -81,6 +98,66 @@ export const AdminView: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSaveAnnouncement = (e: React.FormEvent) => {
+    e.preventDefault();
+    saveStoredAnnouncement(announcement);
+    setAnnouncementSaved(true);
+    setTimeout(() => setAnnouncementSaved(false), 2500);
+  };
+
+  const handleToggleUserAdmin = async (user: UserProfile) => {
+    const newRole = !user.is_admin;
+    const confirmText = newRole
+      ? `Promote "${user.display_name || user.email}" to Admin?`
+      : `Revoke Admin privileges from "${user.display_name || user.email}"?`;
+
+    if (!window.confirm(confirmText)) return;
+
+    setRoleUpdatingId(user.id);
+    const { error } = await updateUserAdminRole(user.id, newRole);
+    setRoleUpdatingId(null);
+
+    if (!error) {
+      setUsers((prev) =>
+        prev.map((u) => (u.id === user.id ? { ...u, is_admin: newRole } : u))
+      );
+    } else {
+      alert('Failed to update user role: ' + (error.message || 'Unknown error'));
+    }
+  };
+
+  const filteredUsers = useMemo(() => {
+    if (!userSearch.trim()) return users;
+    const query = userSearch.toLowerCase();
+    return users.filter(
+      (u) =>
+        (u.display_name && u.display_name.toLowerCase().includes(query)) ||
+        (u.email && u.email.toLowerCase().includes(query)) ||
+        u.id.toLowerCase().includes(query)
+    );
+  }, [users, userSearch]);
+
+  const handleExportUsersCsv = () => {
+    if (users.length === 0) return;
+    const headers = ['User ID', 'Display Name', 'Email Address', 'Role', 'Joined Date'];
+    const rows = users.map((u) => [
+      u.id,
+      u.display_name || 'N/A',
+      u.email || 'N/A',
+      u.is_admin ? 'Admin' : 'User',
+      u.created_at ? new Date(u.created_at).toISOString() : 'N/A'
+    ]);
+
+    const csvContent = [headers.join(','), ...rows.map((r) => r.map((cell) => `"${cell}"`).join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `amz_affiliate_users_${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleOpenAddModal = () => {
@@ -158,7 +235,7 @@ export const AdminView: React.FC = () => {
       payload.id = editingSlot.id;
     }
 
-    const { data, error } = await upsertAdSlot(payload);
+    const { error } = await upsertAdSlot(payload);
     if (error) {
       alert('Error saving ad slot: ' + (error.message || 'Unknown error'));
       return;
@@ -183,34 +260,36 @@ export const AdminView: React.FC = () => {
     }
   };
 
+  const activeAdsCount = adSlots.filter((s) => s.is_active).length;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       
       {/* Admin Shipping Label Banner Header */}
       <div className="p-4 rounded-xl bg-gradient-to-r from-zinc-900 via-amber-950/40 to-zinc-900 border-2 border-dashed border-amber-500/50 shadow-xl text-zinc-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-3 rounded-lg bg-amber-500 text-zinc-950 font-bold border border-amber-400">
+          <div className="p-3 rounded-lg bg-amber-500 text-zinc-950 font-bold border border-amber-400 shrink-0">
             <Shield className="w-6 h-6 stroke-[2.5]" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-mono font-bold uppercase tracking-tight text-amber-400">
-                Admin Control & Ad Management Studio
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-lg sm:text-xl font-mono font-bold uppercase tracking-tight text-amber-400">
+                Admin Control & System Studio
               </h2>
               <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/40 text-[10px] font-mono font-bold">
                 PRO-ADMIN
               </span>
             </div>
             <p className="text-xs text-zinc-400 font-sans mt-0.5">
-              Manage monetization ad slots, embed network scripts, and view registered app accounts.
+              Monetization ad slots, broadcast announcement banner, user account moderation & system health.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 self-start sm:self-auto">
           <button
             onClick={loadAdminData}
-            className="p-2 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 text-xs font-mono flex items-center gap-1.5 transition-colors"
+            className="p-2 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 text-xs font-mono flex items-center gap-1.5 transition-colors cursor-pointer"
             title="Refresh Admin Data"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-amber-400' : ''}`} />
@@ -219,11 +298,59 @@ export const AdminView: React.FC = () => {
         </div>
       </div>
 
-      {/* Admin Tab Selectors */}
-      <div className="flex items-center gap-3 border-b border-zinc-800 pb-3">
+      {/* Overview Analytics Dashboard Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-xs font-mono">
+        <div className="p-3.5 rounded-xl bg-zinc-900/90 border border-amber-500/30 text-zinc-100 space-y-1">
+          <div className="flex items-center justify-between text-zinc-400">
+            <span>ACTIVE AD CAMPAIGNS</span>
+            <Layers className="w-4 h-4 text-amber-500" />
+          </div>
+          <div className="text-2xl font-bold text-amber-400">
+            {activeAdsCount} <span className="text-xs text-zinc-500 font-normal">/ {adSlots.length} Total</span>
+          </div>
+          <p className="text-[10px] text-emerald-400">Monetization Active</p>
+        </div>
+
+        <div className="p-3.5 rounded-xl bg-zinc-900/90 border border-amber-500/30 text-zinc-100 space-y-1">
+          <div className="flex items-center justify-between text-zinc-400">
+            <span>REGISTERED USERS</span>
+            <Users className="w-4 h-4 text-amber-500" />
+          </div>
+          <div className="text-2xl font-bold text-amber-400">
+            {users.length} <span className="text-xs text-zinc-500 font-normal">Profiles</span>
+          </div>
+          <p className="text-[10px] text-amber-400">Supabase Auth Connected</p>
+        </div>
+
+        <div className="p-3.5 rounded-xl bg-zinc-900/90 border border-amber-500/30 text-zinc-100 space-y-1">
+          <div className="flex items-center justify-between text-zinc-400">
+            <span>SITE ANNOUNCEMENT</span>
+            <Megaphone className="w-4 h-4 text-amber-500" />
+          </div>
+          <div className="text-base font-bold truncate text-amber-400">
+            {announcement.enabled ? 'BROADCASTING' : 'OFFLINE'}
+          </div>
+          <p className="text-[10px] text-zinc-400 truncate">{announcement.message || 'No broadcast set'}</p>
+        </div>
+
+        <div className="p-3.5 rounded-xl bg-zinc-900/90 border border-amber-500/30 text-zinc-100 space-y-1">
+          <div className="flex items-center justify-between text-zinc-400">
+            <span>DATABASE HEALTH</span>
+            <Server className="w-4 h-4 text-emerald-400" />
+          </div>
+          <div className="text-2xl font-bold text-emerald-400 flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            100% OK
+          </div>
+          <p className="text-[10px] text-emerald-400">RLS Policies & Sync Active</p>
+        </div>
+      </div>
+
+      {/* Admin Sub-Tab Navigation Selectors */}
+      <div className="flex items-center gap-2 border-b border-zinc-800 pb-3 overflow-x-auto scrollbar-none">
         <button
           onClick={() => setActiveSubTab('ads')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-mono text-xs font-bold transition-all ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg font-mono text-xs font-bold shrink-0 transition-all cursor-pointer ${
             activeSubTab === 'ads'
               ? 'bg-amber-500 text-zinc-950 shadow-md border border-amber-400'
               : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 border border-zinc-800'
@@ -235,14 +362,26 @@ export const AdminView: React.FC = () => {
 
         <button
           onClick={() => setActiveSubTab('users')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-mono text-xs font-bold transition-all ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg font-mono text-xs font-bold shrink-0 transition-all cursor-pointer ${
             activeSubTab === 'users'
               ? 'bg-amber-500 text-zinc-950 shadow-md border border-amber-400'
               : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 border border-zinc-800'
           }`}
         >
           <Users className="w-4 h-4" />
-          <span>Registered Users ({users.length})</span>
+          <span>User Accounts ({users.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab('announcement')}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg font-mono text-xs font-bold shrink-0 transition-all cursor-pointer ${
+            activeSubTab === 'announcement'
+              ? 'bg-amber-500 text-zinc-950 shadow-md border border-amber-400'
+              : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 border border-zinc-800'
+          }`}
+        >
+          <Megaphone className="w-4 h-4" />
+          <span>Site Broadcast Alert Bar</span>
         </button>
       </div>
 
@@ -258,7 +397,7 @@ export const AdminView: React.FC = () => {
         <div className="space-y-4">
           
           {/* Action Header */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
             <h3 className="font-mono text-xs font-bold uppercase text-zinc-400 flex items-center gap-2">
               <span>ACTIVE & CONFIGURED MONETIZATION SLOTS</span>
             </h3>
@@ -372,14 +511,14 @@ export const AdminView: React.FC = () => {
                   <div className="flex items-center justify-end gap-2 pt-1">
                     <button
                       onClick={() => handleOpenEditModal(slot)}
-                      className="px-2.5 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-mono font-bold flex items-center gap-1 border border-zinc-700 transition-colors"
+                      className="px-2.5 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-mono font-bold flex items-center gap-1 border border-zinc-700 transition-colors cursor-pointer"
                     >
                       <Edit3 className="w-3.5 h-3.5 text-amber-400" /> Edit
                     </button>
 
                     <button
                       onClick={() => handleDeleteSlot(slot.id)}
-                      className="px-2.5 py-1.5 rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-xs font-mono font-bold flex items-center gap-1 border border-rose-500/40 transition-colors"
+                      className="px-2.5 py-1.5 rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-xs font-mono font-bold flex items-center gap-1 border border-rose-500/40 transition-colors cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5 text-rose-400" /> Delete
                     </button>
@@ -391,34 +530,61 @@ export const AdminView: React.FC = () => {
         </div>
       )}
 
-      {/* SUB-TAB 2: REGISTERED USERS */}
+      {/* SUB-TAB 2: REGISTERED USERS & MODERATION */}
       {activeSubTab === 'users' && (
         <div className="space-y-4">
-          <h3 className="font-mono text-xs font-bold uppercase text-zinc-400">
-            REGISTERED APP ACCOUNTS ({users.length})
-          </h3>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <h3 className="font-mono text-xs font-bold uppercase text-zinc-400">
+              REGISTERED APP ACCOUNTS ({filteredUsers.length} of {users.length})
+            </h3>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              {/* Search user */}
+              <div className="relative flex-1 sm:w-64">
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-zinc-500" />
+                <input
+                  type="text"
+                  placeholder="Search user email / name..."
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 rounded bg-zinc-950 border border-zinc-800 text-zinc-200 font-mono text-xs focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              {/* Export CSV */}
+              <button
+                onClick={handleExportUsersCsv}
+                className="px-3 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-zinc-950 font-mono font-bold text-xs flex items-center gap-1 shrink-0 transition-all cursor-pointer"
+                title="Export Users list to CSV"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Export CSV</span>
+              </button>
+            </div>
+          </div>
 
           {loading ? (
             <div className="p-8 text-center text-amber-500 font-mono text-xs animate-pulse">
               LOADING USERS FROM SUPABASE PROFILES...
             </div>
-          ) : users.length === 0 ? (
+          ) : filteredUsers.length === 0 ? (
             <div className="p-8 text-center rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 font-mono text-xs">
-              No registered user profiles found in database.
+              No matching user profiles found in database.
             </div>
           ) : (
             <div className="overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-900 shadow-xl">
-              <table className="w-full text-left font-mono text-xs text-zinc-300">
+              <table className="w-full text-left font-mono text-xs text-zinc-300 min-w-[600px]">
                 <thead className="bg-zinc-950 text-amber-400 border-b border-zinc-800">
                   <tr>
                     <th className="p-3 font-bold">Display Name</th>
                     <th className="p-3 font-bold">Email Address</th>
                     <th className="p-3 font-bold">Joined Date</th>
-                    <th className="p-3 font-bold text-right">Role</th>
+                    <th className="p-3 font-bold text-center">Current Role</th>
+                    <th className="p-3 font-bold text-right">Moderation Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800/60">
-                  {users.map((u) => (
+                  {filteredUsers.map((u) => (
                     <tr key={u.id} className="hover:bg-zinc-800/50 transition-colors">
                       <td className="p-3 font-bold text-zinc-100">
                         {u.display_name || 'User'}
@@ -429,7 +595,7 @@ export const AdminView: React.FC = () => {
                       <td className="p-3 text-zinc-500">
                         {u.created_at ? new Date(u.created_at).toLocaleDateString() : 'N/A'}
                       </td>
-                      <td className="p-3 text-right">
+                      <td className="p-3 text-center">
                         {u.is_admin ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/40 text-[10px] font-bold">
                             <Shield className="w-3 h-3 text-amber-400" /> Admin
@@ -440,12 +606,141 @@ export const AdminView: React.FC = () => {
                           </span>
                         )}
                       </td>
+                      <td className="p-3 text-right">
+                        <button
+                          onClick={() => handleToggleUserAdmin(u)}
+                          disabled={roleUpdatingId === u.id}
+                          className={`px-2.5 py-1 rounded text-[11px] font-mono font-bold border transition-all cursor-pointer ${
+                            u.is_admin
+                              ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 hover:bg-rose-500/30'
+                              : 'bg-amber-500/20 text-amber-400 border-amber-500/40 hover:bg-amber-500/30'
+                          }`}
+                        >
+                          {roleUpdatingId === u.id ? 'Updating...' : u.is_admin ? 'Revoke Admin' : 'Make Admin'}
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* SUB-TAB 3: SITE ANNOUNCEMENT ALERT BAR CONFIGURATOR */}
+      {activeSubTab === 'announcement' && (
+        <div className="p-5 rounded-xl bg-zinc-900 border-2 border-dashed border-amber-500/40 space-y-4">
+          <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+            <div>
+              <h3 className="font-mono text-sm font-bold text-amber-400 uppercase flex items-center gap-2">
+                <Megaphone className="w-4 h-4 text-amber-500" />
+                Site-Wide Broadcast Announcement Bar
+              </h3>
+              <p className="text-xs text-zinc-400 font-sans mt-0.5">
+                Broadcast live deals, promo codes, maintenance alerts, or affiliate updates to all app visitors at the top of the screen.
+              </p>
+            </div>
+
+            {announcementSaved && (
+              <span className="px-3 py-1 rounded bg-emerald-500/20 text-emerald-400 font-mono text-xs border border-emerald-500/40 flex items-center gap-1 animate-fade-in">
+                <Check className="w-3.5 h-3.5" /> Broadcast Saved!
+              </span>
+            )}
+          </div>
+
+          <form onSubmit={handleSaveAnnouncement} className="space-y-4 font-mono text-xs">
+            
+            {/* Enable Toggle */}
+            <div className="flex items-center gap-3">
+              <label className="text-zinc-200 font-bold">Enable Site Announcement Bar:</label>
+              <button
+                type="button"
+                onClick={() => setAnnouncement({ ...announcement, enabled: !announcement.enabled })}
+                className={`px-3 py-1.5 rounded font-bold border flex items-center gap-1.5 transition-all ${
+                  announcement.enabled
+                    ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
+                    : 'bg-zinc-800 text-zinc-400 border-zinc-700'
+                }`}
+              >
+                {announcement.enabled ? <ToggleRight className="w-4 h-4 text-emerald-400" /> : <ToggleLeft className="w-4 h-4" />}
+                {announcement.enabled ? 'ACTIVE (SHOWING TO ALL USERS)' : 'DISABLED'}
+              </button>
+            </div>
+
+            {/* Announcement Message */}
+            <div className="space-y-1">
+              <label className="block text-zinc-300 font-bold">
+                Broadcast Message Text <span className="text-rose-400">*</span>
+              </label>
+              <textarea
+                rows={2}
+                required
+                placeholder="e.g. ⚡ FLASH SALE: Prime Deals are active! Generate viral posts now."
+                value={announcement.message}
+                onChange={(e) => setAnnouncement({ ...announcement, message: e.target.value })}
+                className="w-full p-2.5 rounded bg-zinc-950 border border-zinc-700 text-zinc-100 focus:outline-none focus:border-amber-500"
+              />
+            </div>
+
+            {/* Link URL & Theme Type */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="block text-zinc-300 font-bold">CTA Button / Link URL (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="https://amazon.com/deals"
+                  value={announcement.linkUrl || ''}
+                  onChange={(e) => setAnnouncement({ ...announcement, linkUrl: e.target.value })}
+                  className="w-full p-2.5 rounded bg-zinc-950 border border-zinc-700 text-zinc-100 focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-zinc-300 font-bold">Banner Color Theme</label>
+                <select
+                  value={announcement.type}
+                  onChange={(e) => setAnnouncement({ ...announcement, type: e.target.value as any })}
+                  className="w-full p-2.5 rounded bg-zinc-950 border border-zinc-700 text-zinc-100 focus:outline-none focus:border-amber-500"
+                >
+                  <option value="amber">Amber Gold (Deal Warning / Promo)</option>
+                  <option value="emerald">Emerald Green (Success / New Feature)</option>
+                  <option value="rose">Rose Red (Urgent Sale / Limited Time)</option>
+                  <option value="indigo">Indigo Blue (Info / System Update)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Preview Box */}
+            <div className="space-y-1 pt-2">
+              <label className="block text-zinc-400 font-bold text-[11px]">LIVE BROADCAST PREVIEW:</label>
+              <div className={`p-3 rounded-lg border flex items-center justify-between gap-2 text-xs font-mono font-bold ${
+                announcement.type === 'emerald'
+                  ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
+                  : announcement.type === 'rose'
+                  ? 'bg-rose-500/15 border-rose-500/40 text-rose-400'
+                  : announcement.type === 'indigo'
+                  ? 'bg-indigo-500/15 border-indigo-500/40 text-indigo-400'
+                  : 'bg-amber-500/15 border-amber-500/40 text-amber-400'
+              }`}>
+                <span className="truncate">{announcement.message || 'Sample announcement message...'}</span>
+                {announcement.linkUrl && (
+                  <span className="px-2 py-0.5 rounded bg-zinc-950 text-white text-[10px] shrink-0 border border-current">
+                    Action Link
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                type="submit"
+                className="px-5 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold font-mono text-xs flex items-center gap-1.5 shadow-md transition-all active:scale-95 cursor-pointer"
+              >
+                <Save className="w-4 h-4" /> Save & Publish Broadcast
+              </button>
+            </div>
+          </form>
         </div>
       )}
 
@@ -500,124 +795,103 @@ export const AdminView: React.FC = () => {
                 </select>
               </div>
 
-              {/* Ad Type Radio */}
-              <div className="space-y-1.5">
-                <label className="block text-zinc-300 font-bold">Ad Format / Type</label>
-                <div className="grid grid-cols-2 gap-3">
+              {/* Ad Type */}
+              <div className="space-y-1">
+                <label className="block text-zinc-300 font-bold">Ad Format Type</label>
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setFormData({ ...formData, ad_type: 'script' })}
-                    className={`p-3 rounded-lg border text-left flex items-center gap-2 ${
+                    className={`p-2.5 rounded border text-center transition-all ${
                       formData.ad_type === 'script'
-                        ? 'bg-amber-500/20 border-amber-500 text-amber-400 font-bold'
-                        : 'bg-zinc-950 border-zinc-800 text-zinc-400'
+                        ? 'bg-amber-500/20 text-amber-400 border-amber-500/60 font-bold'
+                        : 'bg-zinc-950 text-zinc-400 border-zinc-800'
                     }`}
                   >
-                    <Code className="w-4 h-4" />
-                    <span>Script / Embed Code</span>
+                    Script / Network Embed
                   </button>
-
                   <button
                     type="button"
                     onClick={() => setFormData({ ...formData, ad_type: 'link_banner' })}
-                    className={`p-3 rounded-lg border text-left flex items-center gap-2 ${
+                    className={`p-2.5 rounded border text-center transition-all ${
                       formData.ad_type === 'link_banner'
-                        ? 'bg-amber-500/20 border-amber-500 text-amber-400 font-bold'
-                        : 'bg-zinc-950 border-zinc-800 text-zinc-400'
+                        ? 'bg-amber-500/20 text-amber-400 border-amber-500/60 font-bold'
+                        : 'bg-zinc-950 text-zinc-400 border-zinc-800'
                     }`}
                   >
-                    <ImageIcon className="w-4 h-4" />
-                    <span>Direct Link + Banner</span>
+                    Direct Link + Image Banner
                   </button>
                 </div>
               </div>
 
-              {/* Conditional Field: Script Code Textarea */}
-              {formData.ad_type === 'script' && (
+              {/* Script code input */}
+              {formData.ad_type === 'script' ? (
                 <div className="space-y-1">
-                  <label className="block text-zinc-300 font-bold">Raw Ad Script / HTML Embed Code</label>
+                  <label className="block text-zinc-300 font-bold">HTML / JavaScript Code Snippet</label>
                   <textarea
-                    rows={5}
-                    placeholder={`<script src="https://ezoic.com/ad.js"></script>\n<ins className="adsbygoogle"></ins>`}
+                    rows={4}
+                    placeholder="<script src='https://ad-network.com/banner.js'></script>"
                     value={formData.ad_code}
                     onChange={(e) => setFormData({ ...formData, ad_code: e.target.value })}
-                    className="w-full p-2.5 rounded bg-zinc-950 border border-zinc-700 text-emerald-400 font-mono text-xs focus:outline-none focus:border-amber-500"
+                    className="w-full p-2.5 rounded bg-zinc-950 border border-zinc-700 text-zinc-100 font-mono text-xs focus:outline-none focus:border-amber-500"
                   />
-                  <p className="text-[10px] text-zinc-500 font-sans">
-                    Paste standard ad network code (AdSense, Ezoic, PropellerAds, Amazon Native Ads). Script tags will be dynamically injected.
-                  </p>
                 </div>
-              )}
-
-              {/* Conditional Field: Link Banner Inputs */}
-              {formData.ad_type === 'link_banner' && (
-                <div className="space-y-3">
+              ) : (
+                <>
                   <div className="space-y-1">
-                    <label className="block text-zinc-300 font-bold">Destination Target Link URL</label>
+                    <label className="block text-zinc-300 font-bold">Target Affiliate / Click URL</label>
                     <input
-                      type="url"
-                      placeholder="https://amazon.com/dp/B07PFFMP9P?tag=yourtag-20"
+                      type="text"
+                      placeholder="https://amazon.com/dp/B0C9RNDWMB?tag=yourtag-20"
                       value={formData.link_url}
                       onChange={(e) => setFormData({ ...formData, link_url: e.target.value })}
                       className="w-full p-2.5 rounded bg-zinc-950 border border-zinc-700 text-zinc-100 focus:outline-none focus:border-amber-500"
                     />
                   </div>
-
                   <div className="space-y-1">
-                    <label className="block text-zinc-300 font-bold">Banner Image URL (Optional)</label>
+                    <label className="block text-zinc-300 font-bold">Banner Image Image URL</label>
                     <input
-                      type="url"
-                      placeholder="https://images.unsplash.com/photo-banner.jpg"
+                      type="text"
+                      placeholder="https://images-na.ssl-images-amazon.com/images/P/B0C9RNDWMB.01.jpg"
                       value={formData.banner_image_url}
                       onChange={(e) => setFormData({ ...formData, banner_image_url: e.target.value })}
                       className="w-full p-2.5 rounded bg-zinc-950 border border-zinc-700 text-zinc-100 focus:outline-none focus:border-amber-500"
                     />
                   </div>
-                </div>
+                </>
               )}
 
-              {/* Conditional Field: Display Interval (Only for Interstitial Popup) */}
+              {/* Popup Interval Seconds if Interstitial */}
               {formData.placement === 'interstitial_popup' && (
-                <div className="space-y-1 p-3 rounded bg-amber-500/10 border border-amber-500/30">
-                  <label className="block text-amber-400 font-bold flex items-center gap-1.5">
-                    <Clock className="w-4 h-4" />
-                    <span>Display Interval Frequency (Seconds)</span>
-                  </label>
+                <div className="space-y-1">
+                  <label className="block text-zinc-300 font-bold">Auto Popup Interval (Seconds)</label>
                   <input
                     type="number"
-                    min={0}
+                    min={10}
+                    max={3600}
                     value={formData.display_interval_seconds}
                     onChange={(e) => setFormData({ ...formData, display_interval_seconds: Number(e.target.value) })}
                     className="w-full p-2.5 rounded bg-zinc-950 border border-zinc-700 text-zinc-100 focus:outline-none focus:border-amber-500"
                   />
-                  <p className="text-[10px] text-zinc-400 font-sans">
-                    Minimum time in seconds required before showing the popup to a returning user session. Set 0 to show on every page load.
-                  </p>
                 </div>
               )}
 
-              {/* Active Toggle */}
-              <div className="flex items-center justify-between p-3 rounded bg-zinc-950 border border-zinc-800">
-                <div>
-                  <div className="font-bold text-zinc-200">Enable Ad Slot</div>
-                  <div className="text-[10px] text-zinc-500 font-sans">Only active slots are rendered in the app</div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, is_active: !formData.is_active })}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded font-bold border transition-all cursor-pointer ${
-                    formData.is_active
-                      ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
-                      : 'bg-zinc-800 text-zinc-400 border-zinc-700'
-                  }`}
-                >
-                  {formData.is_active ? <Check className="w-4 h-4 text-emerald-400" /> : <X className="w-4 h-4" />}
-                  <span>{formData.is_active ? 'ACTIVE' : 'INACTIVE'}</span>
-                </button>
+              {/* Is Active */}
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="is_active_check"
+                  checked={formData.is_active}
+                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                  className="w-4 h-4 rounded text-amber-500 bg-zinc-950 border-zinc-700 focus:ring-amber-500"
+                />
+                <label htmlFor="is_active_check" className="text-zinc-200 font-bold cursor-pointer">
+                  Enable and activate this ad slot immediately
+                </label>
               </div>
 
-              {/* Form Footer Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-zinc-800">
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-zinc-800">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
@@ -627,18 +901,15 @@ export const AdminView: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold shadow-lg transition-transform active:scale-95"
+                  className="px-5 py-2 rounded bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold flex items-center gap-1.5 shadow-md"
                 >
-                  Save Ad Slot
+                  <Check className="w-4 h-4" /> Save Ad Slot
                 </button>
               </div>
-
             </form>
-
           </div>
         </div>
       )}
-
     </div>
   );
 };

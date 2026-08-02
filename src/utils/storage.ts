@@ -122,3 +122,33 @@ export function logAnalyticsEvent(event: Omit<AnalyticsEvent, 'id' | 'timestamp'
   };
   saveStoredAnalytics([newEvent, ...current]);
 }
+
+export interface AnnouncementConfig {
+  enabled: boolean;
+  message: string;
+  linkUrl?: string;
+  type: 'amber' | 'emerald' | 'rose' | 'indigo';
+}
+
+const ANNOUNCEMENT_KEY = 'affiliate_pro_announcement_v1';
+
+export function getStoredAnnouncement(): AnnouncementConfig {
+  try {
+    const raw = localStorage.getItem(ANNOUNCEMENT_KEY);
+    return raw ? JSON.parse(raw) : {
+      enabled: true,
+      message: '⚡ ANNOUNCEMENT: Prime Day & Flash Sale Amazon deals are live! Use 1-Click Generator for instant auto-converting posts.',
+      type: 'amber'
+    };
+  } catch (e) {
+    return { enabled: false, message: '', type: 'amber' };
+  }
+}
+
+export function saveStoredAnnouncement(config: AnnouncementConfig): void {
+  try {
+    localStorage.setItem(ANNOUNCEMENT_KEY, JSON.stringify(config));
+  } catch (e) {
+    console.error('Failed to save announcement', e);
+  }
+}

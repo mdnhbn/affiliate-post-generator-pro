@@ -436,3 +436,18 @@ export async function fetchAllProfilesForAdmin(): Promise<UserProfile[]> {
   return (data || []) as UserProfile[];
 }
 
+export async function updateUserAdminRole(userId: string, isAdmin: boolean): Promise<{ error: any }> {
+  if (!isSupabaseConfigured()) return { error: 'Supabase not configured' };
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ is_admin: isAdmin })
+    .eq('id', userId);
+
+  if (error) {
+    console.error('Error updating user admin role in Supabase:', error);
+  }
+
+  return { error };
+}
+
