@@ -100,11 +100,12 @@ export default function App() {
     };
   }, [isConfigured]);
 
-  // Calculate admin state strictly from database record (profiles.is_admin)
+  // Calculate admin state from database record (profiles.is_admin) or site owner email
   const isUserAdmin = Boolean(
     userProfile?.is_admin === true || 
     userProfile?.is_admin === 1 || 
-    (typeof userProfile?.is_admin === 'string' && (userProfile?.is_admin as string).toLowerCase() === 'true')
+    (typeof userProfile?.is_admin === 'string' && (userProfile?.is_admin as string).toLowerCase() === 'true') ||
+    (session?.user?.email && session.user.email.toLowerCase() === 'mdnhbn@gmail.com')
   );
 
   // Load User Data from Supabase

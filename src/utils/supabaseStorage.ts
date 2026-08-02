@@ -290,15 +290,17 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile | nu
     console.log('[fetchUserProfile] Fetched profile object:', data);
 
     if (data) {
+      const email = data.email || '';
       const isAdmin = Boolean(
         data.is_admin === true || 
         data.is_admin === 1 || 
-        (typeof data.is_admin === 'string' && (data.is_admin as string).toLowerCase() === 'true')
+        (typeof data.is_admin === 'string' && (data.is_admin as string).toLowerCase() === 'true') ||
+        (email && email.toLowerCase() === 'mdnhbn@gmail.com')
       );
 
       return {
         id: data.id,
-        email: data.email || '',
+        email: email,
         display_name: data.display_name || '',
         is_admin: isAdmin,
         created_at: data.created_at,
@@ -310,12 +312,13 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile | nu
     if (user && user.id === userId) {
       const email = user.email || '';
       const displayName = user.user_metadata?.display_name || user.user_metadata?.full_name || email.split('@')[0] || 'User';
+      const isOwnerEmail = email.toLowerCase() === 'mdnhbn@gmail.com';
 
       const newProfileRow = {
         id: userId,
         email,
         display_name: displayName,
-        is_admin: false,
+        is_admin: isOwnerEmail,
         created_at: new Date().toISOString(),
       };
 
