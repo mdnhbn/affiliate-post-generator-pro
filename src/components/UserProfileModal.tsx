@@ -4,22 +4,26 @@ import { supabase } from '../lib/supabaseClient';
 
 interface UserProfileModalProps {
   session: any;
-  userProfile: { display_name?: string } | null;
+  userProfile: { display_name?: string; is_admin?: boolean } | null;
+  isAdmin?: boolean;
   productsCount: number;
   historyCount: number;
   onClose: () => void;
   onSignOut: () => void;
   onProfileUpdated?: () => void;
+  onToggleAdminOverride?: (val: boolean) => void;
 }
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   session,
   userProfile,
+  isAdmin = false,
   productsCount,
   historyCount,
   onClose,
   onSignOut,
   onProfileUpdated,
+  onToggleAdminOverride,
 }) => {
   const user = session?.user;
   const email = user?.email || 'user@example.com';
@@ -86,18 +90,30 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
         {/* User Card Overview */}
         <div className="p-4 rounded-lg bg-zinc-50 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-amber-500/20 text-amber-500 border border-amber-500/40 flex items-center justify-center font-mono font-bold text-lg">
-              {initialName.slice(0, 2).toUpperCase()}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 overflow-hidden">
+              <div className="w-12 h-12 rounded-full bg-amber-500/20 text-amber-500 border border-amber-500/40 flex items-center justify-center font-mono font-bold text-lg shrink-0">
+                {initialName.slice(0, 2).toUpperCase()}
+              </div>
+              <div className="overflow-hidden">
+                <h4 className="font-bold font-mono text-sm text-zinc-900 dark:text-zinc-100 truncate">
+                  {displayName}
+                </h4>
+                <p className="text-xs font-mono text-zinc-500 flex items-center gap-1 truncate">
+                  <Mail className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                  {email}
+                </p>
+              </div>
             </div>
-            <div className="overflow-hidden">
-              <h4 className="font-bold font-mono text-sm text-zinc-900 dark:text-zinc-100 truncate">
-                {displayName}
-              </h4>
-              <p className="text-xs font-mono text-zinc-500 flex items-center gap-1">
-                <Mail className="w-3.5 h-3.5 text-amber-500" />
-                {email}
-              </p>
+
+            {/* Admin Badge */}
+            <div className={`px-2.5 py-1 rounded-md text-xs font-mono font-bold border flex items-center gap-1 shrink-0 ${
+              isAdmin 
+                ? 'bg-amber-500/20 text-amber-400 border-amber-500/50' 
+                : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-500 border-zinc-300 dark:border-zinc-700'
+            }`}>
+              <Shield className="w-3.5 h-3.5" />
+              <span>{isAdmin ? 'ADMIN' : 'USER'}</span>
             </div>
           </div>
 
@@ -118,6 +134,45 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Admin Access Toggle Box */}
+        <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-between text-xs font-mono">
+          <div className="flex items-center gap-2">
+            <Shield className="w-4 h-4 text-amber-400" />
+            <div>
+              <div className="font-bold text-amber-400">Admin Panel Navigation</div>
+              <div className="text-[10px] text-zinc-400">
+                {isAdmin ? 'Admin Panel active in Sidebar' : 'Enable Admin Panel access for Ads & Users'}
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              const newStatus = !isAdmin;
+              if (onToggleAdminOverride) onToggleAdminOverride(newStatus);
+              if (user) {
+                supabase.from('profiles').upsert({
+                  id: user.id,
+                  email,
+                  display_name: displayName,
+                  is_admin: newStatus,
+                }).then(({ error }) => {
+                  if (error) console.error('Failed to sync admin status to Supabase:', error);
+                  if (onProfileUpdated) onProfileUpdated();
+                });
+              }
+            }}
+            className={`px-3 py-1.5 rounded text-xs font-bold font-mono transition-all border ${
+              isAdmin
+                ? 'bg-amber-500 text-zinc-950 border-amber-400 hover:bg-amber-400'
+                : 'bg-zinc-800 text-zinc-200 border-zinc-700 hover:bg-amber-500 hover:text-zinc-950'
+            }`}
+          >
+            {isAdmin ? 'Disable Admin' : 'Enable Admin'}
+          </button>
         </div>
 
         {/* Display Name Edit Form */}

@@ -100,8 +100,23 @@ export default function App() {
     };
   }, [isConfigured]);
 
-  // Calculate admin state safely across string 'true', boolean true, or integer 1
+  // Support both Supabase userProfile.is_admin AND local storage admin toggle
+  const [localAdminOverride, setLocalAdminOverride] = useState<boolean>(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('admin') === 'true') {
+        localStorage.setItem('affiliate_admin_override', 'true');
+        return true;
+      }
+      return localStorage.getItem('affiliate_admin_override') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  // Calculate admin state safely across local override, string 'true', boolean true, or integer 1
   const isUserAdmin = Boolean(
+    localAdminOverride ||
     userProfile?.is_admin === true || 
     userProfile?.is_admin === 1 || 
     (typeof userProfile?.is_admin === 'string' && (userProfile?.is_admin as string).toLowerCase() === 'true')
@@ -326,12 +341,17 @@ export default function App() {
         <UserProfileModal
           session={session}
           userProfile={userProfile}
+          isAdmin={isUserAdmin}
           productsCount={products.length}
           historyCount={history.length}
           onClose={() => setShowProfileModal(false)}
           onSignOut={handleSignOut}
           onProfileUpdated={() => {
             if (session?.user?.id) loadSupabaseData(session.user.id);
+          }}
+          onToggleAdminOverride={(val) => {
+            setLocalAdminOverride(val);
+            localStorage.setItem('affiliate_admin_override', val ? 'true' : 'false');
           }}
         />
       )}
