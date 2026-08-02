@@ -10,9 +10,10 @@ interface ScheduleModalProps {
 }
 
 const PEAK_POSTING_TIMES: Record<PlatformId, { bestTime: string; tip: string }> = {
+  facebook: { bestTime: '1:00 PM — 4:00 PM', tip: 'Mid-afternoon break hours produce highest click-through rate.' },
+  facebook_reels: { bestTime: '6:00 PM — 9:00 PM', tip: 'Evening short video watch hours on Facebook feed.' },
   instagram_post: { bestTime: '11:00 AM — 1:00 PM', tip: 'Lunchtime peak engagement for aesthetic photo grids.' },
   instagram_reels: { bestTime: '7:00 PM — 9:00 PM', tip: 'Evening prime time for short-form video algorithms.' },
-  facebook: { bestTime: '1:00 PM — 4:00 PM', tip: 'Mid-afternoon break hours produce highest click-through rate.' },
   whatsapp: { bestTime: '9:00 AM — 11:00 AM', tip: 'Morning routine broadcasts receive highest open rates.' },
   x_twitter: { bestTime: '8:00 AM — 10:00 AM', tip: 'Morning commute news scan hours.' },
   pinterest: { bestTime: '8:00 PM — 11:00 PM', tip: 'Late night inspiration visual browsing peak.' },

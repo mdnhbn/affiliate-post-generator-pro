@@ -108,12 +108,133 @@ export function getAmazonAsinDirectImage(asin: string): string {
 }
 
 /**
+ * Get Amazon Product Image Gallery (Multiple HD Photos)
+ */
+export function getAmazonProductGalleryImages(rawUrl: string, explicitMainImg?: string): string[] {
+  const list: string[] = [];
+  if (explicitMainImg && explicitMainImg.trim() && explicitMainImg.startsWith('http')) {
+    list.push(explicitMainImg.trim());
+  }
+
+  const asin = extractAsinFromUrl(rawUrl);
+  if (asin) {
+    const wsImg = `https://ws-na.amazon-adsystem.com/widgets/q?_encoding=UTF-8&ASIN=${asin}&Format=_SL600_&ID=AsinImage&WS=1`;
+    if (!list.includes(wsImg)) list.push(wsImg);
+
+    const direct1 = `https://images-na.ssl-images-amazon.com/images/P/${asin}.01._SCLZZZZZZZ_.jpg`;
+    if (!list.includes(direct1)) list.push(direct1);
+
+    const direct2 = `https://images-na.ssl-images-amazon.com/images/P/${asin}.02._SCLZZZZZZZ_.jpg`;
+    if (!list.includes(direct2)) list.push(direct2);
+
+    const direct3 = `https://images-na.ssl-images-amazon.com/images/P/${asin}.03._SCLZZZZZZZ_.jpg`;
+    if (!list.includes(direct3)) list.push(direct3);
+
+    const sl1000 = `https://images-na.ssl-images-amazon.com/images/P/${asin}.01._SL1000_.jpg`;
+    if (!list.includes(sl1000)) list.push(sl1000);
+  }
+
+  return list.length > 0 ? list : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80'];
+}
+
+/**
+ * Get Amazon Video & Media Resources links for ASIN
+ */
+export function getAmazonProductVideoResources(rawUrl: string): { title: string; videoPageUrl: string; isOfficialVideo: boolean }[] {
+  const asin = extractAsinFromUrl(rawUrl);
+  if (!asin) return [];
+
+  return [
+    {
+      title: `Official Amazon Seller Video & Customer Video Reviews (ASIN: ${asin})`,
+      videoPageUrl: `https://www.amazon.com/vdp/${asin}`,
+      isOfficialVideo: true,
+    },
+    {
+      title: `Amazon Live Stream Product Demo Video`,
+      videoPageUrl: `https://www.amazon.com/live/video/ASIN/${asin}`,
+      isOfficialVideo: true,
+    },
+    {
+      title: `Amazon Video Gallery Hub`,
+      videoPageUrl: `https://www.amazon.com/dp/${asin}#video-gallery`,
+      isOfficialVideo: false,
+    }
+  ];
+}
+
+/**
+ * Auto-recommend Content Angle, Tone, Audience, and CTA style based on product details
+ */
+export function getRecommendedPresetsForProduct(product: { title?: string; features?: string; priceDiscount?: string }): {
+  contentType: 'promotional' | 'honest_review' | 'comparison' | 'flash_sale' | 'unboxing' | 'listicle';
+  tone: 'friendly' | 'professional' | 'funny' | 'urgent' | 'storytelling';
+  targetAudience: string;
+  ctaType: string;
+  recommendationReason: string;
+} {
+  const text = `${product.title || ''} ${product.features || ''} ${product.priceDiscount || ''}`.toLowerCase();
+
+  // Deal / Discount focus
+  if (text.includes('% off') || text.includes('sale') || text.includes('deal') || text.includes('discount') || text.includes('limited time')) {
+    return {
+      contentType: 'flash_sale',
+      tone: 'urgent',
+      targetAudience: 'Bargain & Discount Hunters',
+      ctaType: 'Direct Affiliate Link in Post',
+      recommendationReason: 'Detected price drop & deal keywords. Urgency angle maximizes conversion.'
+    };
+  }
+
+  // Tech / Gadgets focus
+  if (text.includes('pro') || text.includes('wireless') || text.includes('bluetooth') || text.includes('battery') || text.includes('charger') || text.includes('phone') || text.includes('camera') || text.includes('usb') || text.includes('laptop') || text.includes('magnetic') || text.includes('display')) {
+    return {
+      contentType: 'honest_review',
+      tone: 'professional',
+      targetAudience: 'Gen Z & Tech Enthusiasts',
+      ctaType: 'Direct Affiliate Link in Post',
+      recommendationReason: 'Tech gadget features identified. Hands-on review tone builds high buyer trust.'
+    };
+  }
+
+  // Home / Kitchen / Living
+  if (text.includes('bottle') || text.includes('water') || text.includes('kitchen') || text.includes('home') || text.includes('light') || text.includes('lamp') || text.includes('cleaner') || text.includes('pillow') || text.includes('organizer') || text.includes('cup') || text.includes('straw') || text.includes('tumbler')) {
+    return {
+      contentType: 'promotional',
+      tone: 'friendly',
+      targetAudience: 'Busy Parents & Home Makers',
+      ctaType: 'Direct Affiliate Link in Post',
+      recommendationReason: 'Home & lifestyle item recognized. Friendly aesthetic style works best.'
+    };
+  }
+
+  // Fitness / Outdoor
+  if (text.includes('fitness') || text.includes('gym') || text.includes('sports') || text.includes('shoes') || text.includes('workout') || text.includes('protein') || text.includes('hiking')) {
+    return {
+      contentType: 'unboxing',
+      tone: 'friendly',
+      targetAudience: 'Fitness & Wellness Enthusiasts',
+      ctaType: 'Link in Bio / Profile',
+      recommendationReason: 'Sports & fitness item. Dynamic unboxing vibe triggers high viral engagement.'
+    };
+  }
+
+  // Default fallback
+  return {
+    contentType: 'promotional',
+    tone: 'friendly',
+    targetAudience: 'General Online Shoppers',
+    ctaType: 'Direct Affiliate Link in Post',
+    recommendationReason: 'General Amazon bestseller setup optimized for high organic engagement.'
+  };
+}
+
+/**
  * Auto-extract title & features from URL slug or ASIN
  */
 export function extractInfoFromAmazonUrlSlug(rawUrl: string): { title: string; priceDiscount: string; features: string } {
   const asin = extractAsinFromUrl(rawUrl);
   
-  // Try to parse product title slug from Amazon URL e.g. amazon.com/Anker-Magnetic-Power-Bank/dp/B0C9RNDWMB
   try {
     const urlObj = new URL(rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`);
     const pathnameParts = urlObj.pathname.split('/').filter(Boolean);
@@ -126,7 +247,6 @@ export function extractInfoFromAmazonUrlSlug(rawUrl: string): { title: string; p
       slugTitle = pathnameParts[0].replace(/-/g, ' ');
     }
 
-    // Clean up title
     if (slugTitle && slugTitle.length > 3) {
       const formattedTitle = slugTitle
         .split(' ')
@@ -149,3 +269,4 @@ export function extractInfoFromAmazonUrlSlug(rawUrl: string): { title: string; p
     features: 'High rating, fast Prime shipping, durable build quality, and excellent value for money.'
   };
 }
+

@@ -20,8 +20,8 @@ export const INITIAL_SETTINGS: Settings = {
   geminiModel: 'gemini-2.5-flash',
   openRouterModel: 'google/gemini-2.5-flash',
   imageModel: 'gemini-3.1-flash-lite-image',
-  defaultPlatforms: ['instagram_post', 'facebook'],
-  defaultLanguages: ['English', 'Bengali'],
+  defaultPlatforms: ['facebook', 'instagram_post'],
+  defaultLanguages: ['English', 'Arabic'],
   defaultAffiliateTag: 'yourtag-20',
   marketplaces: [
     { id: 'm-1', domain: 'amazon.com', tag: '' },

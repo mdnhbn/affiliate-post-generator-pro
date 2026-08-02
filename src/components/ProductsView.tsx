@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Product, Settings } from '../types';
-import { Plus, Edit2, Trash2, ExternalLink, Sparkles, Package, Image as ImageIcon, QrCode, Check, FileSpreadsheet, Upload, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Plus, Edit2, Trash2, ExternalLink, Sparkles, Package, Image as ImageIcon, QrCode, Check, FileSpreadsheet, Upload, AlertTriangle, ShieldCheck, Film } from 'lucide-react';
 import { Barcode } from './Barcode';
 import { sanitizeAmazonUrl } from '../utils/amazon';
 import { QrCodeModal } from './QrCodeModal';
+import { ProductMediaGallery } from './ProductMediaGallery';
 import Papa from 'papaparse';
 
 interface ProductsViewProps {
@@ -38,6 +39,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [qrModalData, setQrModalData] = useState<{ url: string; title: string } | null>(null);
+  const [expandedGalleryId, setExpandedGalleryId] = useState<string | null>(null);
 
   // CSV Bulk Import Modal state
   const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
@@ -428,6 +430,17 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                     </div>
                   </div>
 
+                  {/* Expandable Amazon Media & Video Gallery */}
+                  {expandedGalleryId === product.id && (
+                    <div className="mt-3 pt-3 border-t border-dashed border-zinc-200 dark:border-zinc-800 animate-fadeIn">
+                      <ProductMediaGallery
+                        productUrl={product.amazonUrl}
+                        productTitle={product.title}
+                        mainImageUrl={product.imageUrl}
+                      />
+                    </div>
+                  )}
+
                   {/* Card Actions */}
                   <div className="mt-4 pt-3 border-t border-dashed border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1">
@@ -454,13 +467,28 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                       </button>
                     </div>
 
-                    <button
-                      onClick={() => onSelectForPost(product)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-mono font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-zinc-950 border border-amber-500/40 transition-all"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      Use for Post
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setExpandedGalleryId(expandedGalleryId === product.id ? null : product.id)}
+                        className={`px-2.5 py-1.5 rounded text-xs font-mono font-bold flex items-center gap-1 border transition-all ${
+                          expandedGalleryId === product.id
+                            ? 'bg-purple-500 text-zinc-950 border-purple-400'
+                            : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-300 dark:border-zinc-800 hover:border-purple-500/50'
+                        }`}
+                        title="View Product Images & Videos"
+                      >
+                        <ImageIcon className="w-3.5 h-3.5" />
+                        {expandedGalleryId === product.id ? 'Close Media' : 'Media & Video'}
+                      </button>
+
+                      <button
+                        onClick={() => onSelectForPost(product)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-mono font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-zinc-950 border border-amber-500/40 transition-all"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        Use for Post
+                      </button>
+                    </div>
                   </div>
 
                 </div>

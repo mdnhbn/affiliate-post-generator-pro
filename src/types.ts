@@ -1,5 +1,6 @@
 export type PlatformId = 
   | 'facebook' 
+  | 'facebook_reels'
   | 'instagram_post' 
   | 'instagram_reels' 
   | 'whatsapp' 

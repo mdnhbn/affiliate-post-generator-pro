@@ -10,6 +10,7 @@ import { getAmazonProductImageUrl } from './amazon';
 
 export const PLATFORM_NAMES: Record<PlatformId, string> = {
   facebook: 'Facebook Post',
+  facebook_reels: 'Facebook Reels / Story',
   instagram_post: 'Instagram Post',
   instagram_reels: 'Instagram Reels / Story',
   whatsapp: 'WhatsApp Status',
@@ -227,6 +228,7 @@ export function buildSystemAndUserPrompt(
 
   const platformRules: Record<PlatformId, string> = {
     facebook: 'Platform format: Facebook Post. Use short, punchy paragraphs with clear line breaks. Focus on a relatable pain point or curiosity hook, followed by benefits, social proof, and a clear call to action.',
+    facebook_reels: 'Platform format: Facebook Reels / Story. Provide a viral short video script outline (Hook 0-3s, Problem, Visual Demo, CTA) followed by an engaging caption and link.',
     instagram_post: 'Platform format: Instagram Post. Open with a compelling visual hook. Use aesthetic spacing, emojis, benefit bullet points, a high-engagement question, and a clear CTA directing readers to click the link.',
     instagram_reels: 'Platform format: Instagram Reels / Story. Provide BOTH a 5-bullet video script outline (Hook, Problem, Solution, Demo, CTA) AND a punchy caption.',
     whatsapp: 'Platform format: WhatsApp Status / Broadcast. Keep it concise, high-energy, friendly, and direct. Ideal for fast reading on mobile with emojis and clear link.',
