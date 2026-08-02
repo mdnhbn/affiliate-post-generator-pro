@@ -47,10 +47,10 @@ export default function App() {
     return saved ? saved === 'dark' : true; // Default dark "AI shipping label" theme
   });
 
-  const [products, setProducts] = useState<Product[]>([]);
-  const [history, setHistory] = useState<PostResult[]>([]);
-  const [analytics, setAnalytics] = useState<AnalyticsEvent[]>([]);
-  const [settings, setSettings] = useState<Settings>(getStoredSettings());
+  const [products, setProducts] = useState<Product[]>(() => getStoredProducts());
+  const [history, setHistory] = useState<PostResult[]>(() => getStoredHistory());
+  const [analytics, setAnalytics] = useState<AnalyticsEvent[]>(() => getStoredAnalytics());
+  const [settings, setSettings] = useState<Settings>(() => getStoredSettings());
   const [selectedProductForPost, setSelectedProductForPost] = useState<Product | null>(null);
 
   // Supabase Auth State
@@ -66,11 +66,6 @@ export default function App() {
   useEffect(() => {
     if (!isConfigured) {
       setAuthLoading(false);
-      // Load local stored user data
-      setProducts(getStoredProducts());
-      setHistory(getStoredHistory());
-      setAnalytics(getStoredAnalytics());
-      setSettings(getStoredSettings());
       return;
     }
 
@@ -90,6 +85,10 @@ export default function App() {
           loadSupabaseData(currentSession.user.id);
         } else {
           setUserProfile(null);
+          setProducts(getStoredProducts());
+          setHistory(getStoredHistory());
+          setAnalytics(getStoredAnalytics());
+          setSettings(getStoredSettings());
           setAuthLoading(false);
         }
       }
@@ -108,7 +107,7 @@ export default function App() {
     (session?.user?.email && session.user.email.toLowerCase() === 'mdnhbn@gmail.com')
   );
 
-  // Load User Data from Supabase
+  // Load User Data from Supabase & Merge with Local Storage
   const loadSupabaseData = async (userId: string) => {
     setAuthLoading(true);
     try {
@@ -141,11 +140,39 @@ export default function App() {
 
       setUserProfile(profile);
 
-      // Clean load without demo fallbacks
-      setProducts(supaProds);
-      setHistory(supaHist);
+      // Merge Supabase data with Local Storage data so items saved locally are never wiped out
+      const localProds = getStoredProducts();
+      const prodMap = new Map<string, Product>();
+      localProds.forEach(p => prodMap.set(p.id, p));
+      supaProds.forEach(p => prodMap.set(p.id, p));
+      const finalProds = Array.from(prodMap.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+      const localHist = getStoredHistory();
+      const histMap = new Map<string, PostResult>();
+      localHist.forEach(h => histMap.set(h.id, h));
+      supaHist.forEach(h => histMap.set(h.id, h));
+      const finalHist = Array.from(histMap.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+      setProducts(finalProds);
+      saveStoredProducts(finalProds);
+
+      setHistory(finalHist);
+      saveStoredHistory(finalHist);
+
       setAnalytics(getStoredAnalytics());
       setSettings(supaSett);
+
+      // Backfill local items to Supabase in background
+      localProds.forEach(p => {
+        if (!supaProds.some(sp => sp.id === p.id)) {
+          upsertSupabaseProduct(userId, p);
+        }
+      });
+      localHist.forEach(h => {
+        if (!supaHist.some(sh => sh.id === h.id)) {
+          insertSupabaseHistory(userId, h);
+        }
+      });
     } catch (err) {
       console.error('Failed to load user data from Supabase:', err);
       setProducts(getStoredProducts());
