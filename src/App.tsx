@@ -36,6 +36,9 @@ import { AnalyticsView } from './components/AnalyticsView';
 import { SettingsView } from './components/SettingsView';
 import { AuthScreen } from './components/AuthScreen';
 import { UserProfileModal } from './components/UserProfileModal';
+import { AdminView } from './components/AdminView';
+import { AdSlot } from './components/AdSlot';
+import { InterstitialAdModal } from './components/InterstitialAdModal';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('generate');
@@ -136,6 +139,13 @@ export default function App() {
       localStorage.setItem('affiliate_pro_theme', 'light');
     }
   }, [darkMode]);
+
+  // Route guard: Redirect non-admins away from admin panel
+  useEffect(() => {
+    if (activeTab === 'admin' && (!userProfile || !userProfile.is_admin)) {
+      setActiveTab('generate');
+    }
+  }, [activeTab, userProfile]);
 
   // Handlers for Products
   const handleAddProduct = (newProd: Omit<Product, 'id' | 'createdAt'>) => {
@@ -281,6 +291,9 @@ export default function App() {
         onOpenProfile={() => setShowProfileModal(true)}
       />
 
+      {/* Top Banner Ad Slot (Below Main Header) */}
+      <AdSlot placement="top_banner" className="max-w-7xl mx-auto px-4 pt-2" />
+
       {/* User Profile & Database Status Modal */}
       {showProfileModal && (
         <UserProfileModal
@@ -312,6 +325,7 @@ export default function App() {
           productsCount={products.length}
           historyCount={history.length}
           analyticsCount={analytics.length}
+          isAdmin={userProfile?.is_admin === true}
         />
 
         {/* Main Content Workspace */}
@@ -379,9 +393,19 @@ export default function App() {
               onSaveSettings={handleSaveSettings}
             />
           )}
+
+          {activeTab === 'admin' && userProfile?.is_admin && (
+            <AdminView />
+          )}
         </main>
 
       </div>
+
+      {/* Footer Banner Ad Slot */}
+      <AdSlot placement="footer_banner" className="max-w-7xl mx-auto px-4 pb-4" />
+
+      {/* Interstitial Popup Ad Modal */}
+      <InterstitialAdModal />
 
     </div>
   );

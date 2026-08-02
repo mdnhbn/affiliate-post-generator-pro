@@ -129,3 +129,20 @@ export interface GenerationCardState {
   result?: PostResult;
   error?: string;
 }
+
+export type AdPlacement = 'top_banner' | 'footer_banner' | 'interstitial_popup' | 'results_banner';
+export type AdType = 'script' | 'link_banner';
+
+export interface AdSlot {
+  id: string;
+  name: string;
+  placement: AdPlacement;
+  ad_type: AdType;
+  ad_code?: string;
+  link_url?: string;
+  banner_image_url?: string;
+  display_interval_seconds?: number;
+  is_active: boolean;
+  created_at?: string;
+}
+

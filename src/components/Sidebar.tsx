@@ -1,7 +1,7 @@
 import React from 'react';
-import { Sparkles, PackageCheck, History, Settings as SettingsIcon, Stamp, BarChart3, Zap, Flame } from 'lucide-react';
+import { Sparkles, PackageCheck, History, Settings as SettingsIcon, Stamp, BarChart3, Zap, Flame, Shield } from 'lucide-react';
 
-export type TabType = 'url_fetcher' | 'fire_deals' | 'generate' | 'products' | 'history' | 'analytics' | 'settings';
+export type TabType = 'url_fetcher' | 'fire_deals' | 'generate' | 'products' | 'history' | 'analytics' | 'settings' | 'admin';
 
 interface SidebarProps {
   activeTab: TabType;
@@ -9,6 +9,7 @@ interface SidebarProps {
   productsCount: number;
   historyCount: number;
   analyticsCount?: number;
+  isAdmin?: boolean;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
@@ -16,7 +17,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setActiveTab, 
   productsCount,
   historyCount,
-  analyticsCount = 0
+  analyticsCount = 0,
+  isAdmin = false,
 }) => {
   const navItems = [
     {
@@ -75,7 +77,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
       badge: 'CONFIG',
       badgeColor: 'bg-zinc-500/20 text-zinc-400 border-zinc-500/40',
     },
+    ...(isAdmin ? [{
+      id: 'admin' as TabType,
+      label: 'Admin Panel',
+      subtitle: 'Ads & User Management',
+      icon: Shield,
+      badge: 'ADMIN',
+      badgeColor: 'bg-amber-500/20 text-amber-400 border-amber-500/40',
+    }] : []),
   ];
+
 
   return (
     <>

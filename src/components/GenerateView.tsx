@@ -20,6 +20,7 @@ import { sanitizeAmazonUrl } from '../utils/amazon';
 import { logAnalyticsEvent } from '../utils/storage';
 import { QrCodeModal } from './QrCodeModal';
 import { ScheduleModal } from './ScheduleModal';
+import { AdSlot } from './AdSlot';
 import { 
   Sparkles, 
   Package, 
@@ -1228,6 +1229,9 @@ export const GenerateView: React.FC<GenerateViewProps> = ({
               );
             })}
           </div>
+
+          {/* Results Banner Ad Slot */}
+          <AdSlot placement="results_banner" />
 
         </div>
       )}

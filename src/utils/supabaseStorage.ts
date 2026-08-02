@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
-import { Product, PostResult, Settings, ApiKeyItem } from '../types';
+import { Product, PostResult, Settings, ApiKeyItem, AdSlot, AdPlacement } from '../types';
 
 export interface UserProfile {
   id: string;
@@ -284,3 +284,89 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile | nu
   if (error || !data) return null;
   return data as UserProfile;
 }
+
+// -------------------------------------------------------------
+// Ad Slots & Admin Supabase Helpers
+// -------------------------------------------------------------
+export async function fetchAdSlots(isAdmin: boolean = false): Promise<AdSlot[]> {
+  if (!isSupabaseConfigured()) return [];
+
+  let query = supabase.from('ad_slots').select('*');
+  if (!isAdmin) {
+    query = query.eq('is_active', true);
+  }
+  const { data, error } = await query.order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching ad_slots from Supabase:', error);
+    return [];
+  }
+
+  return (data || []) as AdSlot[];
+}
+
+export async function fetchActiveAdSlotsByPlacement(placement: AdPlacement): Promise<AdSlot[]> {
+  if (!isSupabaseConfigured()) return [];
+
+  const { data, error } = await supabase
+    .from('ad_slots')
+    .select('*')
+    .eq('placement', placement)
+    .eq('is_active', true)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error(`Error fetching active ad_slots for placement ${placement}:`, error);
+    return [];
+  }
+
+  return (data || []) as AdSlot[];
+}
+
+export async function upsertAdSlot(adSlot: Partial<AdSlot>): Promise<{ data: AdSlot | null; error: any }> {
+  if (!isSupabaseConfigured()) return { data: null, error: 'Supabase not configured' };
+
+  const { data, error } = await supabase
+    .from('ad_slots')
+    .upsert(adSlot)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error upserting ad_slot to Supabase:', error);
+  }
+
+  return { data: data as AdSlot | null, error };
+}
+
+export async function deleteAdSlot(id: string): Promise<{ error: any }> {
+  if (!isSupabaseConfigured()) return { error: 'Supabase not configured' };
+
+  const { error } = await supabase
+    .from('ad_slots')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting ad_slot from Supabase:', error);
+  }
+
+  return { error };
+}
+
+export async function fetchAllProfilesForAdmin(): Promise<UserProfile[]> {
+  if (!isSupabaseConfigured()) return [];
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching all profiles for admin from Supabase:', error);
+    return [];
+  }
+
+  return (data || []) as UserProfile[];
+}
+
