@@ -13,7 +13,8 @@ import {
   PLATFORM_NAMES, 
   CONTENT_TYPE_NAMES, 
   TONE_NAMES, 
-  generateSinglePost 
+  generateSinglePost,
+  generateFallbackPost
 } from '../utils/ai';
 import { sanitizeAmazonUrl } from '../utils/amazon';
 import { logAnalyticsEvent } from '../utils/storage';
@@ -376,6 +377,87 @@ export const GenerateView: React.FC<GenerateViewProps> = ({
         )
       );
     }
+  };
+
+  // Inline Key Inputs per Card State
+  const [cardKeyInputs, setCardKeyInputs] = useState<Record<string, string>>({});
+
+  // Quick Save API Key Inline & Retry Card
+  const handleSaveInlineKey = (cardId: string) => {
+    const keyToSave = (cardKeyInputs[cardId] || '').trim();
+    if (!keyToSave) {
+      alert('Please enter your Google Gemini API Key (starts with AIzaSy...).');
+      return;
+    }
+
+    const updatedSettings: Settings = {
+      ...settings,
+      provider: 'gemini',
+      geminiKeys: [
+        {
+          id: `key-inline-${Date.now()}`,
+          key: keyToSave,
+          label: 'Primary Gemini Key',
+          status: 'active',
+        },
+        ...(settings.geminiKeys || []).filter((k) => k.key.trim() !== ''),
+      ],
+    };
+
+    onSettingsUpdated(updatedSettings);
+
+    setTimeout(() => {
+      handleRegenerateCard(cardId);
+    }, 100);
+  };
+
+  // Instant Demo AI Post Generator (Fallback Mode)
+  const handleGenerateDemoForCard = (cardId: string) => {
+    const card = cards.find((c) => c.id === cardId);
+    if (!card) return;
+
+    const targetProd = card.product || activeProducts[0];
+    if (!targetProd) {
+      alert('No product selected.');
+      return;
+    }
+
+    const options: GenerationOptions = {
+      products: activeProducts,
+      platforms: [card.platform],
+      languages: [card.language],
+      contentType,
+      tone,
+      targetAudience,
+      ctaType,
+      includeCta,
+      includeHashtags,
+      includeEmoji,
+      includeDisclosure,
+      generateImagePrompt,
+      generateVideoHook,
+      generateHookVariants: false,
+      generateActualImage,
+      customInstructions,
+      inspirationPost,
+    };
+
+    const demoResult = generateFallbackPost(options, card.platform, card.language, targetProd);
+
+    setCards((prev) =>
+      prev.map((c) => (c.id === cardId ? { ...c, status: 'success', result: demoResult, error: undefined } : c))
+    );
+
+    onPostGenerated(demoResult);
+
+    logAnalyticsEvent({
+      postId: demoResult.id,
+      productId: demoResult.productId,
+      productTitle: demoResult.productTitle,
+      platform: demoResult.platform,
+      language: demoResult.language,
+      action: 'generated',
+    });
   };
 
   const handleDismissCard = (cardId: string) => {
@@ -956,18 +1038,65 @@ export const GenerateView: React.FC<GenerateViewProps> = ({
                   {card.status === 'error' && (
                     <div className="p-4 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 space-y-3">
                       <div className="flex items-center gap-2 font-mono font-bold text-xs">
-                        <AlertTriangle className="w-4 h-4 shrink-0" />
-                        Generation Failed
+                        <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500" />
+                        <span>{card.error?.includes('Key') ? 'Google Gemini API Key Required' : 'Generation Failed'}</span>
                       </div>
+                      
                       <p className="text-xs font-sans text-zinc-700 dark:text-zinc-300">
                         {card.error}
                       </p>
-                      <button
-                        onClick={() => handleRegenerateCard(card.id)}
-                        className="px-3 py-1.5 rounded bg-rose-500 text-zinc-950 font-bold font-mono text-xs shadow-sm hover:bg-rose-400 flex items-center gap-1"
-                      >
-                        <RotateCw className="w-3.5 h-3.5" /> Retry Card Only
-                      </button>
+
+                      {/* Quick Inline Key Input Box */}
+                      <div className="bg-zinc-950/80 p-3 rounded-lg border border-zinc-800 space-y-2">
+                        <label className="block text-[11px] font-mono text-amber-400 font-bold flex items-center gap-1.5">
+                          🔑 Paste Your Gemini API Key To Unblock:
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="password"
+                            placeholder="AIzaSy..."
+                            value={cardKeyInputs[card.id] || ''}
+                            onChange={(e) =>
+                              setCardKeyInputs((prev) => ({ ...prev, [card.id]: e.target.value }))
+                            }
+                            className="flex-1 px-2.5 py-1.5 rounded bg-zinc-900 border border-zinc-700 text-xs font-mono text-zinc-100 focus:outline-none focus:border-amber-500"
+                          />
+                          <button
+                            onClick={() => handleSaveInlineKey(card.id)}
+                            className="px-3 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-zinc-950 font-mono font-bold text-xs shrink-0 cursor-pointer transition-all active:scale-95"
+                          >
+                            Save & Retry
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-zinc-400 font-mono">
+                          Get a 100% free key at{' '}
+                          <a
+                            href="https://aistudio.google.com/app/apikey"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-sky-400 hover:underline font-bold"
+                          >
+                            aistudio.google.com/app/apikey
+                          </a>
+                        </p>
+                      </div>
+
+                      {/* Dual Action Buttons */}
+                      <div className="flex items-center gap-2 pt-1 flex-wrap">
+                        <button
+                          onClick={() => handleRegenerateCard(card.id)}
+                          className="px-3 py-1.5 rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 font-bold font-mono text-xs shadow-sm flex items-center gap-1 cursor-pointer"
+                        >
+                          <RotateCw className="w-3.5 h-3.5" /> Retry Key Call
+                        </button>
+
+                        <button
+                          onClick={() => handleGenerateDemoForCard(card.id)}
+                          className="px-3 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold font-mono text-xs shadow-md flex items-center gap-1.5 border border-amber-300 cursor-pointer transition-all active:scale-95"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" /> Generate Instant Studio Demo Post
+                        </button>
+                      </div>
                     </div>
                   )}
 

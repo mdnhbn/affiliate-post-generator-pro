@@ -13,6 +13,7 @@ export default defineConfig(() => {
       'process.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(
         process.env.VITE_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || ''
       ),
+      'process.env.GEMINI_API_KEY': JSON.stringify(process.env.GEMINI_API_KEY || ''),
     },
     envPrefix: ['VITE_', 'NEXT_PUBLIC_', 'SUPABASE_'],
     resolve: {

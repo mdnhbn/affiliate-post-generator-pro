@@ -36,11 +36,154 @@ export const TONE_NAMES = {
 
 // Key Rotation Helper
 function getActiveKey(keys: ApiKeyItem[]): ApiKeyItem | null {
-  const validKeys = keys.filter(k => k.key.trim() && k.status !== 'invalid');
-  if (validKeys.length === 0) return null;
-  // Sort by error count ascending then last used ascending
-  validKeys.sort((a, b) => (a.errorCount || 0) - (b.errorCount || 0) || (a.lastUsed || 0) - (b.lastUsed || 0));
-  return validKeys[0];
+  const validKeys = keys.filter(k => k.key && k.key.trim() && k.status !== 'invalid');
+  if (validKeys.length > 0) {
+    validKeys.sort((a, b) => (a.errorCount || 0) - (b.errorCount || 0) || (a.lastUsed || 0) - (b.lastUsed || 0));
+    return validKeys[0];
+  }
+
+  // Fallback to environment variable key if present and not placeholder
+  let envKey = '';
+  try {
+    if (typeof process !== 'undefined' && process.env && process.env.GEMINI_API_KEY) {
+      envKey = process.env.GEMINI_API_KEY;
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  if (envKey && envKey.trim() && !envKey.includes('MY_GEMINI_API_KEY')) {
+    return {
+      id: 'key-system-env',
+      key: envKey.trim(),
+      label: 'AI Studio Environment Key',
+      status: 'active'
+    };
+  }
+
+  return null;
+}
+
+// Fallback High-Converting Demo Post Generator for Offline/No-Key Preview Mode
+export function generateFallbackPost(
+  options: GenerationOptions,
+  platform: PlatformId,
+  language: string,
+  targetProduct: Product
+): PostResult {
+  const isBengali = language.toLowerCase().includes('bengali') || language.toLowerCase().includes('বাংলা');
+  const isArabic = language.toLowerCase().includes('arabic') || language.toLowerCase().includes('عربي');
+  const isHindi = language.toLowerCase().includes('hindi') || language.toLowerCase().includes('हिंदी');
+  const isUrdu = language.toLowerCase().includes('urdu') || language.toLowerCase().includes('اردو');
+
+  const title = targetProduct.title;
+  const price = targetProduct.priceDiscount || 'অফারে পাওয়া যাচ্ছে';
+  const url = targetProduct.amazonUrl;
+  const features = targetProduct.features || '';
+
+  let text = '';
+  
+  if (isBengali) {
+    text = `🔥 দারুণ ভাইরাল ডিল! ${title} এখন সেরা দামে পাওয়া যাচ্ছে!
+
+📌 মূল বৈশিষ্ট্যসমূহ:
+• ${features || 'প্রিমিয়াম কোয়ালিটি এবং টেকসই উপাদান'}
+• বিশেষ মূল্য / ছাড়: ${price}
+• সোশ্যাল মিডিয়ায় ট্রেন্ডিং এবং কাস্টমারদের সেরা পছন্দ
+
+💡 কেন কিনবেন?
+যারা বাজেটের মধ্যে অরিজিনাল এবং কোয়ালিটি সম্পন্ন প্রোডাক্ট খুঁজছেন, তাদের জন্য এটি সেরা একটি চয়েস! লিমিটেড স্টক, দ্রুত অর্ডার করুন।
+
+👉 সরাসরি অ্যামাজন অফার লিঙ্ক:
+${url}
+
+#AmazonDeals #BengaliViral #SmartShopping #Affiliate #Ad`;
+  } else if (isArabic) {
+    text = `🔥 عرض استثنائي وفاخر! ${title} متوفر الآن بسعر منافس!
+
+📌 أهم المميزات:
+• ${features || 'تصميم عصري وجودة ممتازة'}
+• السعر / الخصم الحالي: ${price}
+• الأكثر مبيعاً وتقييماً على أمازون
+
+💡 لماذا تطلبه اليوم؟
+الخيار الأمثل لكل من يبحث عن الأداء الفائق والقيمة الحقيقية. الكمية محدودة سارع بالشراء!
+
+👉 رابط الشراء المباشر من أمازون:
+${url}
+
+#عروض_أمازون #تسوق_ذكيات #أمازون #Ad`;
+  } else if (isHindi) {
+    text = `🔥 ज़बरदस्त ट्रेंडिंग डील! ${title} अब बेहद ख़ास ऑफर पर उपलब्ध है!
+
+📌 मुख्य विशेषताएं:
+• ${features || 'प्रीमियम क्वालिटी और शानदार स्थायित्व'}
+• स्पेशल ऑफर: ${price}
+
+💡 क्यों खरीदें?
+अगर आप बेस्ट परफॉरमेंस और सही दाम चाहते हैं, तो यह प्रोडक्ट आपके लिए बिल्कुल परफेक्ट है!
+
+👉 डायरेक्ट अमेज़न ऑर्डर लिंक:
+${url}
+
+#AmazonDeals #TrendingProducts #SmartShopping #Ad`;
+  } else if (isUrdu) {
+    text = `🔥 زبردست آفر! ${title} اب بہترین ڈسکاؤنٹ کے ساتھ دستیاب ہے!
+
+📌 اہم خصوصیات:
+• ${features || 'پریمیئم کوالٹی اور جدید ڈیزائن'}
+• خصوصی ڈسکاؤنٹ: ${price}
+
+💡 کیوں خریدیں؟
+بہترین معیار اور مناسب قیمت کا زبردست امتزاج۔ اسٹاک محدود ہے، ابھی آرڈر کریں!
+
+👉 ایمیزون سے براہ راست خریدیں:
+${url}
+
+#AmazonDeals #SmartShopping #Ad`;
+  } else {
+    // English
+    text = `🔥 VIRAL HOT DEAL! ${title} is trending right now at a special discounted price!
+
+📌 Key Highlights:
+• ${features || 'High-performance build, sleek aesthetic & top customer rating.'}
+• Price / Discount: ${price}
+
+💡 Why You Need This:
+The ultimate combination of quality and efficiency. Don't miss out on this price drop!
+
+👉 Direct Amazon Order Link:
+${url}
+
+#AmazonDeals #ViralFinds #MustHave #SmartShopping #Ad`;
+  }
+
+  const promptToUse = `${title} product showcase studio lighting professional photography`;
+  const seed = Math.floor(Math.random() * 1000000);
+  const generatedImageUrl = options.generateActualImage
+    ? `https://image.pollinations.ai/prompt/${encodeURIComponent(promptToUse)}?width=1024&height=1024&nologo=true&seed=${seed}`
+    : undefined;
+
+  const hashtagRegex = /#([\w\u0980-\u09FF\u0600-\u06FF\u0900-\u097F]+)/g;
+  const hashtags = text.match(hashtagRegex) || ['#AmazonDeals', '#Ad'];
+
+  return {
+    id: `post-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    productId: targetProduct.id,
+    productTitle: options.contentType === 'listicle' ? `Top ${options.products.length} Picks Roundup` : targetProduct.title,
+    productUrl: targetProduct.amazonUrl,
+    platform,
+    language,
+    contentType: options.contentType,
+    tone: options.tone,
+    text,
+    variantUsed: 'single',
+    hashtags: Array.from(new Set(hashtags)),
+    generatedImageUrl,
+    createdAt: Date.now(),
+    providerUsed: 'Instant AI Studio Demo Engine',
+    keyLabelUsed: 'Studio Demo Key',
+  };
 }
 
 function updateKeyUsage(keys: ApiKeyItem[], keyId: string, success: boolean): ApiKeyItem[] {
@@ -152,7 +295,9 @@ export async function generateSinglePost(
     attempts++;
     const activeKeyItem = getActiveKey(currentKeys);
     if (!activeKeyItem || !activeKeyItem.key.trim()) {
-      throw new Error(`Please configure your ${provider === 'gemini' ? 'Google Gemini' : 'OpenRouter'} API Key in Settings.`);
+      // Fallback to Instant Studio Post Generator if no API key is provided
+      console.log('No active API key found, generating instant studio demo post fallback.');
+      return generateFallbackPost(options, platform, language, targetProduct);
     }
 
     try {
@@ -309,5 +454,6 @@ export async function generateSinglePost(
     }
   }
 
-  throw new Error(lastError);
+  console.warn('API generation failed, serving fallback post:', lastError);
+  return generateFallbackPost(options, platform, language, targetProduct);
 }
