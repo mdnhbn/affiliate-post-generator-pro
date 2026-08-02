@@ -6,6 +6,7 @@ import { Flame, Search, ExternalLink, Sparkles, Plus, Check, TrendingUp, AlertTr
 
 interface FireDealsViewProps {
   settings: Settings;
+  existingProducts?: Product[];
   onAddProduct: (product: Omit<Product, 'id' | 'createdAt'>) => void;
   onSelectForPost: (product: Product) => void;
 }
@@ -30,6 +31,7 @@ const TARGET_MARKETPLACES = [
 
 export const FireDealsView: React.FC<FireDealsViewProps> = ({
   settings,
+  existingProducts = [],
   onAddProduct,
   onSelectForPost,
 }) => {
@@ -41,6 +43,8 @@ export const FireDealsView: React.FC<FireDealsViewProps> = ({
   const [hideDemoDeals, setHideDemoDeals] = useState<boolean>(() => {
     return localStorage.getItem('affiliate_hide_demo_fire_deals') === 'true';
   });
+
+  // User manually created custom deals (saved in localStorage)
   const [customDeals, setCustomDeals] = useState<FireDealProduct[]>(() => {
     try {
       const saved = localStorage.getItem('affiliate_custom_fire_deals');
@@ -49,6 +53,9 @@ export const FireDealsView: React.FC<FireDealsViewProps> = ({
       return [];
     }
   });
+
+  // Transient session search results (NOT saved in localStorage, clears on refresh)
+  const [sessionSearchedDeals, setSessionSearchedDeals] = useState<FireDealProduct[] | null>(null);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -60,17 +67,32 @@ export const FireDealsView: React.FC<FireDealsViewProps> = ({
   const [selectedMonth, setSelectedMonth] = useState<string>('All');
   const [selectedMarketplace, setSelectedMarketplace] = useState(TARGET_MARKETPLACES[0]);
   const [isAiSearching, setIsAiSearching] = useState(false);
-  const [aiNiche, setAiNiche] = useState('TikTok Made Me Buy It');
 
   const MONTHS = ['All', 'August 2026', 'July 2026'];
 
   const defaultTag = settings.defaultAffiliateTag || 'yourtag-20';
 
-  // Build live country-specific Amazon URL for direct user verification
-  const getLiveCountryUrl = (deal: FireDealProduct) => {
-    const asin = deal.asin || extractAsinFromUrl(deal.amazonUrl) || 'B0BL4RWX8D';
+  // Helper to check if a product is ALREADY saved in the user's Products Library
+  const isProductInLibrary = (deal: FireDealProduct): boolean => {
+    const dealAsin = deal.asin || extractAsinFromUrl(deal.amazonUrl);
+    return existingProducts.some((p) => {
+      const pAsin = extractAsinFromUrl(p.amazonUrl);
+      if (dealAsin && pAsin && dealAsin.toUpperCase() === pAsin.toUpperCase()) return true;
+      if (p.title.toLowerCase().includes(deal.title.toLowerCase().slice(0, 15))) return true;
+      return false;
+    });
+  };
+
+  // Build live country-specific Amazon URL for direct user verification without 404 errors
+  const getLiveCountryUrl = (deal: FireDealProduct, forceSearch = false) => {
     const tagToUse = getTagForUrl(`https://www.${selectedMarketplace.domain}`, defaultTag, settings.marketplaces);
-    return `https://www.${selectedMarketplace.domain}/dp/${asin}?tag=${encodeURIComponent(tagToUse)}`;
+    const asin = deal.asin || extractAsinFromUrl(deal.amazonUrl);
+
+    if (forceSearch || selectedMarketplace.id !== 'com' || !asin) {
+      return `https://www.${selectedMarketplace.domain}/s?k=${encodeURIComponent(deal.title)}&tag=${encodeURIComponent(tagToUse)}`;
+    }
+
+    return `https://www.amazon.com/dp/${asin}?tag=${encodeURIComponent(tagToUse)}`;
   };
 
   const toggleHideDemoDeals = () => {
@@ -79,62 +101,191 @@ export const FireDealsView: React.FC<FireDealsViewProps> = ({
     localStorage.setItem('affiliate_hide_demo_fire_deals', String(nextVal));
   };
 
-  // AI Monthly Viral Product Scraper & Finder
+  // AI Monthly Viral Product Scraper & Finder (Session Results, Deduplicated)
   const handleRunAiViralFinder = () => {
     setIsAiSearching(true);
 
     setTimeout(() => {
-      const generatedDeals: FireDealProduct[] = [
+      const fullViralPool: FireDealProduct[] = [
         {
           id: `ai-viral-1-${Date.now()}`,
           title: 'Stanley Tumbler IceFlow Flip Straw Water Bottle 30oz',
           category: 'Kitchen & Dining',
-          priceDiscount: '$35.00 — 15% OFF',
-          estCommission: '9% ($3.15 / sale)',
-          features: 'Double-wall vacuum insulation keeps ice cold for 30 hours. Leakproof flip straw, ergonomic handle, fits cup holders.',
+          priceDiscount: `${selectedMarketplace.currency} 35.00 — 15% OFF`,
+          estCommission: '9% Commission',
+          features: 'Double-wall vacuum insulation keeps ice cold for 30 hours. Leakproof flip straw, ergonomic handle.',
           asin: 'B083GZXH88',
           amazonUrl: 'https://www.amazon.com/dp/B083GZXH88',
           imageUrl: 'https://images.unsplash.com/photo-1517686469429-8bdb88b9f907?w=600&auto=format&fit=crop&q=80',
           badge: '⭐ TOP VIRAL PICK',
           discountPercent: 15,
-          addedDate: 'August 2026',
+          addedDate: selectedMonth === 'All' ? 'August 2026' : selectedMonth,
         },
         {
           id: `ai-viral-2-${Date.now()}`,
           title: 'SOL DE JANEIRO Cheirosa 68 Beija Flor Perfume Mist',
           category: 'Beauty & Personal Care',
-          priceDiscount: '$38.00 — Viral Hit',
-          estCommission: '10% ($3.80 / sale)',
+          priceDiscount: `${selectedMarketplace.currency} 38.00 — Viral Hit`,
+          estCommission: '10% Commission',
           features: 'Fruity floral perfume mist with Brazilian Jasmine and Pink Dragonfruit. Long-lasting scent viral on TikTok beauty reels.',
           asin: 'B09R578KML',
           amazonUrl: 'https://www.amazon.com/dp/B09R578KML',
           imageUrl: 'https://images.unsplash.com/photo-1594035910387-fea47794261f?w=600&auto=format&fit=crop&q=80',
           badge: '🏆 #1 BEAUTY VIRAL',
           discountPercent: 10,
-          addedDate: 'August 2026',
+          addedDate: selectedMonth === 'All' ? 'August 2026' : selectedMonth,
         },
         {
           id: `ai-viral-3-${Date.now()}`,
           title: 'Anker Magnetic Power Bank 10,000mAh Wireless Portable Charger',
           category: 'Tech & Electronics',
-          priceDiscount: '$44.99 — 25% OFF',
-          estCommission: '8% ($3.60 / sale)',
-          features: 'Snap-and-charge MagSafe power bank for iPhone 15/14/13. Built-in foldable stand, USB-C fast charging port.',
+          priceDiscount: `${selectedMarketplace.currency} 44.99 — 25% OFF`,
+          estCommission: '8% Commission',
+          features: 'Snap-and-charge MagSafe power bank for smartphones. Built-in foldable stand, USB-C fast charging port.',
           asin: 'B099KBDK1F',
           amazonUrl: 'https://www.amazon.com/dp/B099KBDK1F',
           imageUrl: 'https://images.unsplash.com/photo-1609592424109-dd9892f1b177?w=600&auto=format&fit=crop&q=80',
           badge: '⚡ 25%+ OFF',
           discountPercent: 25,
-          addedDate: 'August 2026',
+          addedDate: selectedMonth === 'All' ? 'August 2026' : selectedMonth,
+        },
+        {
+          id: `ai-viral-4-${Date.now()}`,
+          title: 'Ninja Creami Ice Cream Maker for Gelato, Sorbet & Milkshakes',
+          category: 'Kitchen & Dining',
+          priceDiscount: `${selectedMarketplace.currency} 199.99 — Viral TikTok Hit`,
+          estCommission: '8% Commission',
+          features: '7 one-touch programs (Ice cream, Sorbet, Gelato, Milkshake). Dual-drive motor shaves fine ice crystals into smooth treats.',
+          asin: 'B08Q37C773',
+          amazonUrl: 'https://www.amazon.com/dp/B08Q37C773',
+          imageUrl: 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?w=600&auto=format&fit=crop&q=80',
+          badge: '⭐ TRENDING VIRAL',
+          discountPercent: 20,
+          addedDate: selectedMonth === 'All' ? 'August 2026' : selectedMonth,
+        },
+        {
+          id: `ai-viral-5-${Date.now()}`,
+          title: 'Apple AirPods Pro (2nd Generation) Wireless Earbuds with USB-C',
+          category: 'Tech & Electronics',
+          priceDiscount: `${selectedMarketplace.currency} 189.99 — 24% OFF`,
+          estCommission: '8% Commission',
+          features: 'Up to 2x more Active Noise Cancellation, Transparency mode, Adaptive Audio, USB-C MagSafe Charging Case.',
+          asin: 'B0CHWRXH8B',
+          amazonUrl: 'https://www.amazon.com/dp/B0CHWRXH8B',
+          imageUrl: 'https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=600&auto=format&fit=crop&q=80',
+          badge: '🔥 HOT DEAL',
+          discountPercent: 24,
+          addedDate: selectedMonth === 'All' ? 'August 2026' : selectedMonth,
+        },
+        {
+          id: `ai-viral-6-${Date.now()}`,
+          title: 'Dyson Airwrap Multi-Styler Complete Long for All Hair Types',
+          category: 'Beauty & Personal Care',
+          priceDiscount: `${selectedMarketplace.currency} 599.00 — Luxury Viral`,
+          estCommission: '10% Commission',
+          features: 'Coanda airflow technology styles hair without extreme heat damage. Includes barrels to curl and wave in both directions.',
+          asin: 'B09L577Z91',
+          amazonUrl: 'https://www.amazon.com/dp/B09L577Z91',
+          imageUrl: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=600&auto=format&fit=crop&q=80',
+          badge: '⭐ TRENDING VIRAL',
+          discountPercent: 10,
+          addedDate: selectedMonth === 'All' ? 'August 2026' : selectedMonth,
+        },
+        {
+          id: `ai-viral-7-${Date.now()}`,
+          title: 'Bissell Little Green Multi-Purpose Portable Carpet Cleaner',
+          category: 'Smart Home',
+          priceDiscount: `${selectedMarketplace.currency} 98.00 — 21% OFF`,
+          estCommission: '8% Commission',
+          features: 'Removes spots and stains from carpets, upholstery, car interiors. 48 oz tank capacity, lightweight & portable.',
+          asin: 'B0016HF5GK',
+          amazonUrl: 'https://www.amazon.com/dp/B0016HF5GK',
+          imageUrl: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=600&auto=format&fit=crop&q=80',
+          badge: '🏆 #1 BEST SELLER',
+          discountPercent: 21,
+          addedDate: selectedMonth === 'All' ? 'August 2026' : selectedMonth,
+        },
+        {
+          id: `ai-viral-8-${Date.now()}`,
+          title: 'WalkingPad C2 Foldable Under Desk Treadmill Walking Pad',
+          category: 'Fitness & Health',
+          priceDiscount: `${selectedMarketplace.currency} 349.00 — 30% OFF`,
+          estCommission: '8% Commission',
+          features: 'Patented 180-degree double folding design, quiet motor, LED display panel, fits under standing desk.',
+          asin: 'B09KC8J34L',
+          amazonUrl: 'https://www.amazon.com/dp/B09KC8J34L',
+          imageUrl: 'https://images.unsplash.com/photo-1576678927484-cc907957088c?w=600&auto=format&fit=crop&q=80',
+          badge: '⭐ TRENDING VIRAL',
+          discountPercent: 30,
+          addedDate: selectedMonth === 'All' ? 'August 2026' : selectedMonth,
+        },
+        {
+          id: `ai-viral-9-${Date.now()}`,
+          title: 'Owala FreeSip Insulated Stainless Steel Water Bottle 32oz',
+          category: 'Kitchen & Dining',
+          priceDiscount: `${selectedMarketplace.currency} 37.99 — TikTok Favorite`,
+          estCommission: '9% Commission',
+          features: 'Dual-purpose spout lets you sip through built-in straw or swig. Keeps drinks cold 24 hours.',
+          asin: 'B085DV9JFX',
+          amazonUrl: 'https://www.amazon.com/dp/B085DV9JFX',
+          imageUrl: 'https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=600&auto=format&fit=crop&q=80',
+          badge: '⭐ TRENDING VIRAL',
+          discountPercent: 15,
+          addedDate: selectedMonth === 'All' ? 'August 2026' : selectedMonth,
+        },
+        {
+          id: `ai-viral-10-${Date.now()}`,
+          title: 'Govee RGBIC LED Strip Lights 32.8ft with App Control',
+          category: 'Smart Home',
+          priceDiscount: `${selectedMarketplace.currency} 19.99 — 35% OFF`,
+          estCommission: '10% Commission',
+          features: 'Segmented color control, music sync mode with built-in mic, 64+ preset scene modes, smartphone app remote.',
+          asin: 'B08149FMTG',
+          amazonUrl: 'https://www.amazon.com/dp/B08149FMTG',
+          imageUrl: 'https://images.unsplash.com/photo-1565814329452-e1efa11c5b89?w=600&auto=format&fit=crop&q=80',
+          badge: '⚡ 35% OFF',
+          discountPercent: 35,
+          addedDate: selectedMonth === 'All' ? 'August 2026' : selectedMonth,
+        },
+        {
+          id: `ai-viral-11-${Date.now()}`,
+          title: 'Laneige Lip Sleeping Mask Berry Hydrating Treatment',
+          category: 'Beauty & Personal Care',
+          priceDiscount: `${selectedMarketplace.currency} 24.00 — Essential`,
+          estCommission: '10% Commission',
+          features: 'Nourishing sleeping lip mask enriched with Berry Mix Complex and Vitamin C. Delivers intense moisture overnight.',
+          asin: 'B073R5K3YV',
+          amazonUrl: 'https://www.amazon.com/dp/B073R5K3YV',
+          imageUrl: 'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=600&auto=format&fit=crop&q=80',
+          badge: '⭐ TRENDING VIRAL',
+          discountPercent: 10,
+          addedDate: selectedMonth === 'All' ? 'August 2026' : selectedMonth,
+        },
+        {
+          id: `ai-viral-12-${Date.now()}`,
+          title: 'Kindle Paperwhite (16 GB) 6.8" Display Warm Light',
+          category: 'Tech & Electronics',
+          priceDiscount: `${selectedMarketplace.currency} 124.99 — 17% OFF`,
+          estCommission: '8% Commission',
+          features: '300 ppi glare-free display, adjustable warm light, IPX8 waterproof, battery lasts up to 10 weeks.',
+          asin: 'B09TMN58Y2',
+          amazonUrl: 'https://www.amazon.com/dp/B09TMN58Y2',
+          imageUrl: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600&auto=format&fit=crop&q=80',
+          badge: '🏆 #1 BEST SELLER',
+          discountPercent: 17,
+          addedDate: selectedMonth === 'All' ? 'August 2026' : selectedMonth,
         },
       ];
 
-      const updated = [...generatedDeals, ...customDeals];
-      setCustomDeals(updated);
-      localStorage.setItem('affiliate_custom_fire_deals', JSON.stringify(updated));
+      // DEDUPLICATION STEP: Filter out items that are ALREADY in user's saved Products Library
+      const deduplicatedViralList = fullViralPool.filter((deal) => !isProductInLibrary(deal));
+
+      setSessionSearchedDeals(deduplicatedViralList);
       setIsAiSearching(false);
-      alert(`🎉 3 New Trending Monthly Viral Products discovered and added for ${selectedMonth === 'All' ? 'August 2026' : selectedMonth}!`);
-    }, 1200);
+
+      const excludedCount = fullViralPool.length - deduplicatedViralList.length;
+      alert(`🎉 Found ${deduplicatedViralList.length} fresh viral products for ${selectedMarketplace.name} (${selectedMonth})!\n\n${excludedCount > 0 ? `ℹ️ ${excludedCount} previously added product(s) were automatically excluded to prevent duplicates.` : ''}\n\nNote: These search results are session-only until you click "Save to Library".`);
+    }, 1000);
   };
 
   const handleAddCustomDeal = (e: React.FormEvent) => {
@@ -164,9 +315,31 @@ export const FireDealsView: React.FC<FireDealsViewProps> = ({
   };
 
   const activeDeals = useMemo(() => {
-    const base = hideDemoDeals ? customDeals : [...customDeals, ...AMAZON_FIRE_DEALS];
-    return base;
-  }, [hideDemoDeals, customDeals]);
+    let base: FireDealProduct[] = [];
+    if (sessionSearchedDeals !== null) {
+      base = [...sessionSearchedDeals, ...customDeals];
+    } else {
+      base = hideDemoDeals ? customDeals : [...customDeals, ...AMAZON_FIRE_DEALS];
+    }
+
+    // Deduplicate within activeDeals list itself so same product never appears twice
+    const seenAsins = new Set<string>();
+    const seenTitles = new Set<string>();
+
+    return base.filter((deal) => {
+      const asin = deal.asin || extractAsinFromUrl(deal.amazonUrl);
+      const titleKey = deal.title.toLowerCase().trim();
+
+      if (asin) {
+        if (seenAsins.has(asin.toUpperCase())) return false;
+        seenAsins.add(asin.toUpperCase());
+      } else {
+        if (seenTitles.has(titleKey)) return false;
+        seenTitles.add(titleKey);
+      }
+      return true;
+    });
+  }, [sessionSearchedDeals, hideDemoDeals, customDeals]);
 
   const filteredDeals = useMemo(() => {
     return activeDeals.filter((deal) => {
@@ -201,6 +374,7 @@ export const FireDealsView: React.FC<FireDealsViewProps> = ({
 
     onAddProduct(prod);
     onSelectForPost(prod);
+    setAddedIds((prev) => [...prev, deal.id]);
   };
 
   const handleSaveToLibrary = (deal: FireDealProduct) => {
@@ -444,10 +618,29 @@ export const FireDealsView: React.FC<FireDealsViewProps> = ({
 
       </div>
 
+      {/* Session Search Status Banner */}
+      {sessionSearchedDeals !== null && (
+        <div className="flex items-center justify-between p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-lg text-xs font-mono text-amber-400 flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-amber-400 shrink-0 animate-pulse" />
+            <span>
+              Session Search: <strong>{filteredDeals.length} fresh viral hits</strong> for {selectedMarketplace.name}. Results clear on refresh unless saved.
+            </span>
+          </div>
+          <button
+            onClick={() => setSessionSearchedDeals(null)}
+            className="text-zinc-400 hover:text-amber-300 underline shrink-0 text-[11px] font-bold cursor-pointer"
+          >
+            Reset to Default Catalog
+          </button>
+        </div>
+      )}
+
       {/* Grid of Deals with Sequential Ranks #1 to #20 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {filteredDeals.map((deal, index) => {
-          const isAdded = addedIds.includes(deal.id);
+          const inLibrary = isProductInLibrary(deal);
+          const isAdded = addedIds.includes(deal.id) || inLibrary;
           const needsRecheck = !!needsRecheckMap[deal.id];
           const rankNumber = index + 1;
           const liveUrl = getLiveCountryUrl(deal);
@@ -478,6 +671,12 @@ export const FireDealsView: React.FC<FireDealsViewProps> = ({
                     <span className="text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-500 px-1.5 py-0.5 rounded border border-emerald-500/20">
                       ASIN: {asin}
                     </span>
+
+                    {inLibrary && (
+                      <span className="text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/40">
+                        ✓ IN YOUR LIBRARY
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -508,15 +707,28 @@ export const FireDealsView: React.FC<FireDealsViewProps> = ({
                   </div>
 
                   {/* Direct Live Amazon Product Page Link Verification */}
-                  <a
-                    href={liveUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-sky-500 hover:text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 px-2.5 py-1 rounded border border-sky-500/30 transition-all"
-                  >
-                    <ExternalLink className="w-3 h-3" />
-                    Verify Live on {selectedMarketplace.domain}
-                  </a>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <a
+                      href={getLiveCountryUrl(deal, false)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-sky-500 hover:text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 px-2 py-1 rounded border border-sky-500/30 transition-all"
+                      title="Direct Product Link"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      Verify on {selectedMarketplace.domain}
+                    </a>
+                    <a
+                      href={getLiveCountryUrl(deal, true)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[10px] font-mono text-zinc-400 hover:text-amber-400 bg-zinc-800/80 hover:bg-zinc-800 px-2 py-1 rounded border border-zinc-700 transition-all"
+                      title="Live Search Result Verification"
+                    >
+                      <Search className="w-3 h-3" />
+                      Search Live
+                    </a>
+                  </div>
                 </div>
 
                 {/* Features */}

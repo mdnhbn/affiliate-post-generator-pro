@@ -327,6 +327,7 @@ export default function App() {
           {activeTab === 'fire_deals' && (
             <FireDealsView
               settings={settings}
+              existingProducts={products}
               onAddProduct={handleAddProduct}
               onSelectForPost={handleSelectProductForPost}
             />
