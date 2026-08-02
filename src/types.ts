@@ -103,6 +103,7 @@ export interface PostResult {
   productId: string;
   productTitle: string;
   productUrl: string;
+  productImageUrl?: string;
   platform: PlatformId;
   language: string;
   contentType: ContentTypeId | 'inspired';

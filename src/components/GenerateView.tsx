@@ -16,10 +16,11 @@ import {
   generateSinglePost,
   generateFallbackPost
 } from '../utils/ai';
-import { sanitizeAmazonUrl } from '../utils/amazon';
+import { sanitizeAmazonUrl, extractAsinFromUrl, getAmazonProductImageUrl, getAmazonAsinDirectImage } from '../utils/amazon';
 import { logAnalyticsEvent } from '../utils/storage';
 import { QrCodeModal } from './QrCodeModal';
 import { ScheduleModal } from './ScheduleModal';
+import { SocialShareBar } from './SocialShareBar';
 import { AdSlot } from './AdSlot';
 import { 
   Sparkles, 
@@ -41,7 +42,8 @@ import {
   Target,
   QrCode,
   Calendar,
-  Download
+  Download,
+  ExternalLink
 } from 'lucide-react';
 import { Barcode } from './Barcode';
 
@@ -135,6 +137,7 @@ export const GenerateView: React.FC<GenerateViewProps> = ({
 
   // Active Variant Switcher per Card ID State
   const [activeVariantMap, setActiveVariantMap] = useState<Record<string, 'A' | 'B'>>({});
+  const [showAiImageMap, setShowAiImageMap] = useState<Record<string, boolean>>({});
 
   // Advanced / Inspiration
   const [customInstructions, setCustomInstructions] = useState('');
@@ -1143,27 +1146,86 @@ export const GenerateView: React.FC<GenerateViewProps> = ({
                           : card.result.text}
                       </div>
 
-                      {/* Generated Actual Image Thumbnail */}
-                      {card.result.generatedImageUrl && (
-                        <div className="p-3 rounded bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 space-y-2">
-                          <div className="font-mono font-bold text-[11px] text-amber-500 flex items-center justify-between">
-                            <span className="flex items-center gap-1"><ImageIcon className="w-3.5 h-3.5" /> AI Generated Image Asset</span>
-                            <a
-                              href={card.result.generatedImageUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-[10px] text-zinc-400 hover:text-amber-400 underline"
-                            >
-                              Open Full HD
-                            </a>
+                      {/* Original Amazon Product Photo Display */}
+                      {(() => {
+                        const realImgUrl = card.result.productImageUrl || card.product?.imageUrl || getAmazonProductImageUrl(card.result.productUrl || card.product?.amazonUrl || '');
+                        const displayImg = showAiImageMap[card.id] && card.result.generatedImageUrl
+                          ? card.result.generatedImageUrl
+                          : (realImgUrl || getAmazonAsinDirectImage(extractAsinFromUrl(card.result.productUrl) || ''));
+
+                        return (
+                          <div className="p-3.5 rounded-lg bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 space-y-2.5">
+                            <div className="flex items-center justify-between font-mono font-bold text-xs">
+                              <span className="text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
+                                <Package className="w-4 h-4 text-amber-500 shrink-0" />
+                                Amazon Original Product Photo
+                              </span>
+
+                              {card.result.generatedImageUrl && (
+                                <button
+                                  onClick={() => setShowAiImageMap((prev) => ({ ...prev, [card.id]: !prev[card.id] }))}
+                                  className="text-[11px] text-amber-600 dark:text-amber-400 font-mono hover:underline flex items-center gap-1"
+                                >
+                                  {showAiImageMap[card.id] ? '← View Real Amazon Image' : '✨ View AI Generated Banner'}
+                                </button>
+                              )}
+                            </div>
+
+                            <div className="relative group bg-white dark:bg-zinc-950 rounded-md border border-zinc-200 dark:border-zinc-800 p-2 flex items-center justify-center min-h-[160px] max-h-[260px] overflow-hidden">
+                              <img
+                                src={displayImg}
+                                alt={card.result.productTitle}
+                                onError={(e) => {
+                                  const asin = extractAsinFromUrl(card.result.productUrl);
+                                  if (asin && (e.target as HTMLImageElement).src !== getAmazonAsinDirectImage(asin)) {
+                                    (e.target as HTMLImageElement).src = getAmazonAsinDirectImage(asin);
+                                  }
+                                }}
+                                className="max-h-[240px] w-auto object-contain rounded transition-transform group-hover:scale-105"
+                              />
+                            </div>
+
+                            <div className="flex items-center justify-between gap-2 text-[11px] font-mono flex-wrap pt-0.5">
+                              <span className="text-zinc-500 text-[11px] font-sans">
+                                {showAiImageMap[card.id] ? 'AI Rendered Banner' : 'Original Amazon CDN Image'}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                {displayImg && (
+                                  <a
+                                    href={displayImg}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="px-2 py-1 rounded bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:text-amber-500 flex items-center gap-1"
+                                  >
+                                    <ExternalLink className="w-3 h-3" /> Full Image
+                                  </a>
+                                )}
+                                {displayImg && (
+                                  <button
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(displayImg);
+                                      alert('Original image URL copied to clipboard!');
+                                    }}
+                                    className="px-2 py-1 rounded bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:text-amber-500 flex items-center gap-1"
+                                  >
+                                    <Copy className="w-3 h-3" /> Copy Image Link
+                                  </button>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                          <img
-                            src={card.result.generatedImageUrl}
-                            alt="Generated AI Banner"
-                            className="w-full h-44 object-cover rounded-md border border-zinc-300 dark:border-zinc-700 shadow-sm"
-                          />
-                        </div>
-                      )}
+                        );
+                      })()}
+
+                      {/* 1-Click Multi-Platform Social Share Bar */}
+                      <SocialShareBar
+                        post={card.result}
+                        activeText={
+                          card.result.variantAText && card.result.variantBText
+                            ? (activeVariantMap[card.id] === 'B' ? card.result.variantBText : card.result.variantAText)
+                            : card.result.text
+                        }
+                      />
 
                       {/* Hashtags Visual Badge Group */}
                       {card.result.hashtags.length > 0 && (

@@ -83,6 +83,31 @@ export function sanitizeAmazonUrl(rawUrl: string, defaultTag: string = 'yourtag-
 }
 
 /**
+ * Get Amazon Product Image URL using ASIN CDN or explicit URL
+ */
+export function getAmazonProductImageUrl(rawUrl: string, explicitImageUrl?: string): string {
+  if (explicitImageUrl && explicitImageUrl.trim() && explicitImageUrl.startsWith('http')) {
+    return explicitImageUrl.trim();
+  }
+
+  const asin = extractAsinFromUrl(rawUrl);
+  if (asin) {
+    // Amazon Official WS Product Image CDN endpoint
+    return `https://ws-na.amazon-adsystem.com/widgets/q?_encoding=UTF-8&ASIN=${asin}&Format=_SL600_&ID=AsinImage&WS=1`;
+  }
+
+  return '';
+}
+
+/**
+ * Fallback direct image URL for Amazon ASIN
+ */
+export function getAmazonAsinDirectImage(asin: string): string {
+  if (!asin) return '';
+  return `https://images-na.ssl-images-amazon.com/images/P/${asin.toUpperCase()}.01._SCLZZZZZZZ_.jpg`;
+}
+
+/**
  * Auto-extract title & features from URL slug or ASIN
  */
 export function extractInfoFromAmazonUrlSlug(rawUrl: string): { title: string; priceDiscount: string; features: string } {

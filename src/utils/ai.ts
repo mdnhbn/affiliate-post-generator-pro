@@ -6,6 +6,7 @@ import {
   Settings, 
   ApiKeyItem 
 } from '../types';
+import { getAmazonProductImageUrl } from './amazon';
 
 export const PLATFORM_NAMES: Record<PlatformId, string> = {
   facebook: 'Facebook Post',
@@ -172,6 +173,7 @@ ${url}
     productId: targetProduct.id,
     productTitle: options.contentType === 'listicle' ? `Top ${options.products.length} Picks Roundup` : targetProduct.title,
     productUrl: targetProduct.amazonUrl,
+    productImageUrl: targetProduct.imageUrl || getAmazonProductImageUrl(targetProduct.amazonUrl),
     platform,
     language,
     contentType: options.contentType,
@@ -428,6 +430,7 @@ export async function generateSinglePost(
         productId: targetProduct.id,
         productTitle: options.contentType === 'listicle' ? `Top ${options.products.length} Picks Roundup` : targetProduct.title,
         productUrl: targetProduct.amazonUrl,
+        productImageUrl: targetProduct.imageUrl || getAmazonProductImageUrl(targetProduct.amazonUrl),
         platform,
         language,
         contentType: options.inspirationPost ? 'inspired' : options.contentType,

@@ -1,10 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { PostResult } from '../types';
 import { PLATFORM_NAMES } from '../utils/ai';
+import { getAmazonProductImageUrl, extractAsinFromUrl, getAmazonAsinDirectImage } from '../utils/amazon';
 import { logAnalyticsEvent } from '../utils/storage';
 import { QrCodeModal } from './QrCodeModal';
 import { ScheduleModal } from './ScheduleModal';
-import { Search, Download, Trash2, Copy, Check, Filter, ExternalLink, Calendar, FileText, QrCode } from 'lucide-react';
+import { SocialShareBar } from './SocialShareBar';
+import { Search, Download, Trash2, Copy, Check, Filter, ExternalLink, Calendar, FileText, QrCode, Package } from 'lucide-react';
 
 interface HistoryViewProps {
   history: PostResult[];
@@ -334,8 +336,43 @@ ${item.text}
                 </div>
 
                 {/* Generated Text */}
-                <div className="bg-zinc-50 dark:bg-zinc-900/80 p-3 rounded border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-800 dark:text-zinc-200 whitespace-pre-line font-sans leading-relaxed">
+                <div className="bg-zinc-50 dark:bg-zinc-900/80 p-3 rounded border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-800 dark:text-zinc-200 whitespace-pre-line font-sans leading-relaxed mb-3">
                   {item.text}
+                </div>
+
+                {/* Original Amazon Product Photo */}
+                {(() => {
+                  const realImgUrl = item.productImageUrl || getAmazonProductImageUrl(item.productUrl);
+                  const asin = extractAsinFromUrl(item.productUrl);
+                  const displayImg = realImgUrl || (asin ? getAmazonAsinDirectImage(asin) : '');
+
+                  if (!displayImg) return null;
+
+                  return (
+                    <div className="mb-3 p-3 rounded-lg bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 space-y-2">
+                      <div className="font-mono font-bold text-[11px] text-amber-500 flex items-center justify-between">
+                        <span className="flex items-center gap-1.5"><Package className="w-3.5 h-3.5" /> Amazon Product Photo</span>
+                        <a href={displayImg} target="_blank" rel="noreferrer" className="text-[10px] text-zinc-400 hover:text-amber-400 underline">View High-Res</a>
+                      </div>
+                      <div className="flex items-center justify-center p-2 bg-white dark:bg-zinc-950 rounded border border-zinc-200 dark:border-zinc-800 max-h-[220px] overflow-hidden">
+                        <img
+                          src={displayImg}
+                          alt={item.productTitle}
+                          onError={(e) => {
+                            if (asin && (e.target as HTMLImageElement).src !== getAmazonAsinDirectImage(asin)) {
+                              (e.target as HTMLImageElement).src = getAmazonAsinDirectImage(asin);
+                            }
+                          }}
+                          className="max-h-[200px] w-auto object-contain rounded"
+                        />
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* 1-Click Multi-Platform Social Share Bar */}
+                <div className="mb-2">
+                  <SocialShareBar post={item} />
                 </div>
 
                 {/* Image Prompt / Hashtags */}
